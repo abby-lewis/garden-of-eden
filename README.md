@@ -182,14 +182,14 @@ The device should then appear in your homeassistant discovery settings.
 
 To test locally on gardyn pi:
 
-Pump:
+Light:
 
 ```
 mosquitto_pub -t "gardyn/light/command" -m "ON" -u gardyn -P "somepassword"
 mosquitto_pub -t "gardyn/light/command" -m "OFF" -u gardyn -P "somepassword"
 ```
 
-Light:
+Pump:
 
 ```
 mosquitto_pub -t "gardyn/pump/command" -m "ON" -u gardyn -P "somepassword"
