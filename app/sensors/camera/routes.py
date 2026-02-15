@@ -1,8 +1,8 @@
 """
-Camera REST API:
-- Capture: take a picture (return image immediately and/or save to disk).
-- Stream: live MJPEG feed (requires opencv-python-headless).
-- Photos: list and serve saved photos when CAMERA_PHOTOS_DIR is set.
+Camera REST API (snapshots only; no live stream):
+- GET /upper, GET /lower: take a picture and return JPEG (client can poll for live-ish view).
+- POST /capture: take a picture (return image or save to disk).
+- Photos: list and serve saved photos.
 """
 import os
 from flask import Blueprint, request, jsonify, Response, send_from_directory
@@ -99,28 +99,6 @@ def capture():
         ), 200
 
     return Response(jpeg_bytes, mimetype="image/jpeg")
-
-
-@camera_blueprint.route("/stream/<int:device_id>", methods=["GET"])
-@check_sensor
-def stream(device_id):
-    """
-    Live MJPEG video feed from the given camera (0 or 1).
-    Use in an <img src="/camera/stream/0"> or similar for live view.
-    Requires opencv-python-headless on the Pi.
-    """
-    if device_id not in (0, 1):
-        return jsonify(error="device must be 0 or 1"), 400
-    try:
-        def generate():
-            for frame in camera_control.stream_frames(device_id):
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        return Response(
-            generate(),
-            mimetype="multipart/x-mixed-replace; boundary=frame",
-        )
-    except CameraError as e:
-        return jsonify(error=str(e)), 503
 
 
 @camera_blueprint.route("/photos", methods=["GET"])
