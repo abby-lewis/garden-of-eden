@@ -1,4 +1,5 @@
 Adafruit-Blinka==8.37.0
+opencv-python-headless>=4.5.0
 adafruit-circuitpython-ahtx0==1.0.21
 adafruit-circuitpython-am2320==1.2.20
 adafruit-circuitpython-busdevice==5.2.6
