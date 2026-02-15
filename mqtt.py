@@ -1,3 +1,4 @@
+import subprocess
 import threading
 from threading import Timer
 import logging
@@ -18,7 +19,6 @@ from app.sensors.pcb_temp.pcb_temp import get_pcb_temperature
 from app.sensors.temperature.temperature import temperature_sensor
 from app.sensors.humidity.humidity import humidity_sensor
 from app.sensors.distance.distance import Distance, MeasurementError
-from app.sensors.camera.camera import Camera, CameraError
 
 # Configure logging
 logging.basicConfig(
@@ -483,21 +483,35 @@ def publish_water_level(client):
         sleep(30 * 60)
 
 def publish_images(client):
-    camera = Camera()
     while True:
         try:
-            # Use shared camera module (same lock as REST API so only one process uses each device at a time)
-            upper_cam_jpeg_data, _ = camera.capture(device_id=0, save_dir=None)
+            # Capture upper camera image
+            subprocess.check_call([
+                'fswebcam', '-d', UPPER_CAMERA_DEVICE, '-r', CAMERA_RESOLUTION,
+                '-S', '2', '-F', '2', '--no-banner', UPPER_IMAGE_PATH
+            ])
             logger.info(f"Captured image from upper camera ({UPPER_CAMERA_DEVICE})")
-            client.publish(BASE_TOPIC + "/image/upper_camera", payload=upper_cam_jpeg_data, qos=0, retain=False)
-            logger.info("Published image to /image/upper_camera")
 
-            lower_cam_jpeg_data, _ = camera.capture(device_id=1, save_dir=None)
+            # Capture lower camera image
+            subprocess.check_call([
+                'fswebcam', '-d', LOWER_CAMERA_DEVICE, '-r', CAMERA_RESOLUTION,
+                '-S', '2', '-F', '2', '--no-banner', LOWER_IMAGE_PATH
+            ])
             logger.info(f"Captured image from lower camera ({LOWER_CAMERA_DEVICE})")
-            client.publish(BASE_TOPIC + "/image/lower_camera", payload=lower_cam_jpeg_data, qos=0, retain=False)
-            logger.info("Published image to /image/lower_camera")
 
-        except CameraError as e:
+            # Publish upper camera image
+            with open(UPPER_IMAGE_PATH, 'rb') as f:
+                upper_cam_jpeg_data = f.read()
+                client.publish(BASE_TOPIC + "/image/upper_camera", payload=upper_cam_jpeg_data, qos=0, retain=False)
+                logger.info("Published image to /image/upper_camera")
+
+            # Publish lower camera image
+            with open(LOWER_IMAGE_PATH, 'rb') as f:
+                lower_cam_jpeg_data = f.read()
+                client.publish(BASE_TOPIC + "/image/lower_camera", payload=lower_cam_jpeg_data, qos=0, retain=False)
+                logger.info("Published image to /image/lower_camera")
+
+        except subprocess.CalledProcessError as e:
             logger.error(f"Camera capture failed: {e}")
         except Exception as e:
             logger.exception("Unexpected error during image capture/publish")

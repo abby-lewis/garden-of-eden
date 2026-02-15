@@ -1,15 +1,15 @@
 # Pi camera add-on for garden-of-eden
 
-This add-on exposes HTTP endpoints for the Gardyn cameras, aligned with the **dev branch** of [garden-of-eden](https://github.com/abby-lewis/garden-of-eden). It uses `fswebcam` (and optionally OpenCV for live stream) so the dashboard can show snapshots, live MJPEG, and saved photos.
+This add-on exposes HTTP endpoints for the Gardyn cameras, aligned with the **dev branch** of [garden-of-eden](https://github.com/abby-lewis/garden-of-eden). It uses `fswebcam` only (no live stream). The client gets pictures by calling snapshot endpoints; for a live-ish view, poll `GET /camera/upper` or `GET /camera/lower` every few seconds.
 
 ---
 
 ## What’s in this addon
 
 - **Snapshot (backward compatible):** `GET /camera/upper` and `GET /camera/lower` — capture and return a JPEG from each camera.
-- **Dev-style API:** devices list, POST capture (with optional save), MJPEG stream, list/serve saved photos.
+- **Dev-style API:** devices list, POST capture (with optional save), list/serve saved photos. No MJPEG stream; client polls snapshot endpoints for a live-ish view.
 
-**Dashboard:** Snapshot / Live toggle, Take picture, Capture & save (upper/lower), and a Saved photos section.
+**Dashboard:** Snapshot view (poll upper/lower), Take picture, Capture & save (upper/lower), and a Saved photos section.
 
 ---
 
@@ -33,8 +33,7 @@ app.register_blueprint(camera_blueprint, url_prefix='/camera')
 
 ## 3. Dependencies and permissions
 
-- **fswebcam:** `sudo apt-get install fswebcam` (required for capture).
-- **Live stream (optional):** `pip install opencv-python-headless` so `GET /camera/stream/<id>` works.
+- **fswebcam:** `sudo apt-get install fswebcam` (required for capture). No OpenCV or other Python camera deps.
 - The process running Flask must be able to read `/dev/video0` and `/dev/video2` (or whatever devices you set). Run as a user in the `video` group, or run the app with sufficient permissions; no `take-pictures.sh` or sudo needed for this addon.
 
 ## 4. Environment variables (optional)
@@ -59,8 +58,6 @@ Set in `.env` or the environment:
 | GET | `/camera/lower` | Snapshot from lower camera (JPEG). |
 | GET | `/camera/devices` | List cameras (id, device path, name). |
 | POST | `/camera/capture` | Take a picture. Body/query: `device` = `0`/`1` or `upper`/`lower`, `save` = `0`/`1`. Returns JPEG or JSON with `url`/`path` when `save=1` (saves to project_root/photos by default). |
-| GET | `/camera/stream/0` | Live MJPEG from upper camera (for `<img src="...">`). |
-| GET | `/camera/stream/1` | Live MJPEG from lower camera. |
 | GET | `/camera/photos` | List saved photo filenames and URLs (from project_root/photos by default). |
 | GET | `/camera/photos/<filename>` | Serve a saved photo. |
 
