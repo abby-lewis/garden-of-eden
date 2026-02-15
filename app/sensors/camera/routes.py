@@ -10,9 +10,9 @@ from app.lib.lib import check_sensor_guard
 from .camera import Camera, CameraError
 
 try:
-    from config import CAMERA_PHOTOS_DIR
+    from config import CAMERA_PHOTOS_DIR_RESOLVED
 except ImportError:
-    CAMERA_PHOTOS_DIR = ""
+    CAMERA_PHOTOS_DIR_RESOLVED = os.path.join(os.getcwd(), "photos")
 
 camera_blueprint = Blueprint("camera", __name__)
 camera_control = Camera()
@@ -35,6 +35,28 @@ def _device_id_from_request() -> int:
         return 0
 
 
+@camera_blueprint.route("/upper", methods=["GET"])
+@check_sensor
+def snapshot_upper():
+    """Snapshot from upper camera (JPEG). Backward compatible."""
+    try:
+        jpeg_bytes, _ = camera_control.capture(device_id=0, save_dir=None)
+        return Response(jpeg_bytes, mimetype="image/jpeg")
+    except CameraError as e:
+        return jsonify(error=str(e)), 503
+
+
+@camera_blueprint.route("/lower", methods=["GET"])
+@check_sensor
+def snapshot_lower():
+    """Snapshot from lower camera (JPEG). Backward compatible."""
+    try:
+        jpeg_bytes, _ = camera_control.capture(device_id=1, save_dir=None)
+        return Response(jpeg_bytes, mimetype="image/jpeg")
+    except CameraError as e:
+        return jsonify(error=str(e)), 503
+
+
 @camera_blueprint.route("/devices", methods=["GET"])
 @check_sensor
 def list_devices():
@@ -51,8 +73,7 @@ def capture():
     Query/body: device=0|1|upper|lower (default 0), save=0|1 (default 0).
 
     - save=0: Return the image immediately as image/jpeg (no storage).
-    - save=1: Save to CAMERA_PHOTOS_DIR (if set) and return JSON with url and path.
-      If CAMERA_PHOTOS_DIR is not set, still returns image/jpeg and does not save.
+    - save=1: Save to project_root/photos (or CAMERA_PHOTOS_DIR) and return JSON with url and path.
     """
     device_id = _device_id_from_request()
     save = request.args.get("save", "0").strip().lower() in ("1", "true", "yes")
@@ -60,7 +81,7 @@ def capture():
         body = request.get_json(silent=True) or {}
         save = body.get("save", False) in (True, 1, "1", "true", "yes")
 
-    save_dir = CAMERA_PHOTOS_DIR if save and CAMERA_PHOTOS_DIR else None
+    save_dir = CAMERA_PHOTOS_DIR_RESOLVED if save else None
     try:
         jpeg_bytes, saved_path = camera_control.capture(device_id=device_id, save_dir=save_dir)
     except CameraError as e:
@@ -68,7 +89,7 @@ def capture():
     except ValueError as e:
         return jsonify(error=str(e)), 400
 
-    if save and saved_path and CAMERA_PHOTOS_DIR:
+    if save and saved_path:
         filename = os.path.basename(saved_path)
         return jsonify(
             message="Photo saved",
@@ -106,14 +127,13 @@ def stream(device_id):
 @check_sensor
 def list_photos():
     """
-    List saved photo filenames (when CAMERA_PHOTOS_DIR is set).
-    Returns JSON with filenames and urls.
+    List saved photo filenames and URLs (from project_root/photos by default).
     """
-    if not CAMERA_PHOTOS_DIR or not os.path.isdir(CAMERA_PHOTOS_DIR):
-        return jsonify(photos=[], message="No photo storage configured (CAMERA_PHOTOS_DIR)"), 200
+    if not os.path.isdir(CAMERA_PHOTOS_DIR_RESOLVED):
+        return jsonify(photos=[], message="Photo directory does not exist yet"), 200
     try:
         files = [
-            f for f in os.listdir(CAMERA_PHOTOS_DIR)
+            f for f in os.listdir(CAMERA_PHOTOS_DIR_RESOLVED)
             if f.lower().endswith((".jpg", ".jpeg"))
         ]
         files.sort(reverse=True)
@@ -126,12 +146,12 @@ def list_photos():
 @camera_blueprint.route("/photos/<path:filename>", methods=["GET"])
 @check_sensor
 def get_photo(filename):
-    """Serve a saved photo by filename (only under CAMERA_PHOTOS_DIR)."""
-    if not CAMERA_PHOTOS_DIR or not os.path.isdir(CAMERA_PHOTOS_DIR):
-        return jsonify(error="Photo storage not configured"), 404
+    """Serve a saved photo by filename (from project_root/photos by default)."""
+    if not os.path.isdir(CAMERA_PHOTOS_DIR_RESOLVED):
+        return jsonify(error="Photo directory not available"), 404
     if ".." in filename or os.path.sep in filename:
         return jsonify(error="Invalid filename"), 400
     try:
-        return send_from_directory(CAMERA_PHOTOS_DIR, filename, mimetype="image/jpeg")
+        return send_from_directory(CAMERA_PHOTOS_DIR_RESOLVED, filename, mimetype="image/jpeg")
     except OSError:
         return jsonify(error="Not found"), 404
