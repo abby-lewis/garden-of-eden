@@ -28,5 +28,11 @@ UPPER_IMAGE_PATH = os.getenv("UPPER_IMAGE_PATH", "/tmp/upper_camera.jpg")
 LOWER_IMAGE_PATH = os.getenv("LOWER_IMAGE_PATH", "/tmp/lower_camera.jpg")
 CAMERA_RESOLUTION = os.getenv("CAMERA_RESOLUTION", "640x480")
 IMAGE_INTERVAL_SECONDS = int(os.getenv("IMAGE_INTERVAL_SECONDS", "3600"))
-# Optional: directory to save photos from REST capture (empty = do not save, only return in response)
-CAMERA_PHOTOS_DIR = os.getenv("CAMERA_PHOTOS_DIR", "")
+# Where to save "Capture & save" photos. Relative paths are relative to GARDYN_PROJECT_ROOT.
+CAMERA_PHOTOS_DIR = os.getenv("CAMERA_PHOTOS_DIR", "photos")
+GARDYN_PROJECT_ROOT = os.getenv("GARDYN_PROJECT_ROOT", os.getcwd())
+CAMERA_PHOTOS_DIR_RESOLVED = (
+    os.path.join(GARDYN_PROJECT_ROOT, CAMERA_PHOTOS_DIR)
+    if not os.path.isabs(CAMERA_PHOTOS_DIR)
+    else CAMERA_PHOTOS_DIR
+)
