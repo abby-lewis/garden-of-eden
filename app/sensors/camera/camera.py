@@ -1,7 +1,9 @@
 """
 Camera capture using fswebcam (USB cameras at /dev/video0, /dev/video1 or /dev/video2).
 Uses config for device paths and resolution; supports capture to bytes or to disk.
+Uses a per-device file lock so MQTT and Flask (or two requests) don't capture from the same camera at once.
 """
+import fcntl
 import logging
 import os
 import subprocess
@@ -16,6 +18,8 @@ try:
         CAMERA_RESOLUTION,
         UPPER_IMAGE_PATH,
         LOWER_IMAGE_PATH,
+        UPPER_CAMERA_PALETTE,
+        LOWER_CAMERA_PALETTE,
     )
 except ImportError:
     UPPER_CAMERA_DEVICE = os.getenv("UPPER_CAMERA_DEVICE", "/dev/video0")
@@ -23,19 +27,40 @@ except ImportError:
     CAMERA_RESOLUTION = os.getenv("CAMERA_RESOLUTION", "640x480")
     UPPER_IMAGE_PATH = os.getenv("UPPER_IMAGE_PATH", "/tmp/upper_camera.jpg")
     LOWER_IMAGE_PATH = os.getenv("LOWER_IMAGE_PATH", "/tmp/lower_camera.jpg")
+    UPPER_CAMERA_PALETTE = os.getenv("UPPER_CAMERA_PALETTE", "").strip() or None
+    LOWER_CAMERA_PALETTE = os.getenv("LOWER_CAMERA_PALETTE", "").strip() or None
 
 logger = logging.getLogger(__name__)
 
-# Device index to (device path, default temp path) for capture
+# Device index to (device path, default temp path, optional palette) for capture
 DEVICE_MAP = {
-    0: (UPPER_CAMERA_DEVICE, UPPER_IMAGE_PATH),
-    1: (LOWER_CAMERA_DEVICE, LOWER_IMAGE_PATH),
+    0: (UPPER_CAMERA_DEVICE, UPPER_IMAGE_PATH, UPPER_CAMERA_PALETTE),
+    1: (LOWER_CAMERA_DEVICE, LOWER_IMAGE_PATH, LOWER_CAMERA_PALETTE),
 }
 
 
 class CameraError(Exception):
     """Raised when capture or device access fails."""
     pass
+
+
+def _device_lock_path(device_id: int) -> str:
+    """Path to a lock file so only one process captures from this device at a time."""
+    return f"/tmp/gardyn_camera_{device_id}.lock"
+
+
+def _capture_lock(device_id: int):
+    """Context manager: hold an exclusive lock on this camera device (cross-process)."""
+    path = _device_lock_path(device_id)
+    fd = os.open(path, os.O_CREAT | os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 
 class Camera:
@@ -59,7 +84,7 @@ class Camera:
             {"id": 1, "device": LOWER_CAMERA_DEVICE, "name": "lower"},
         ]
 
-    def _device_for_id(self, device_id: int) -> Tuple[str, str]:
+    def _device_for_id(self, device_id: int) -> Tuple[str, str, Optional[str]]:
         device_id = int(device_id)
         if device_id not in DEVICE_MAP:
             raise ValueError(f"device must be 0 or 1, got {device_id}")
@@ -83,7 +108,7 @@ class Camera:
         Raises:
             CameraError: If fswebcam fails or device is unavailable.
         """
-        device_path, default_path = self._device_for_id(device_id)
+        device_path, default_path, palette = self._device_for_id(device_id)
         out_path = default_path
         if save_dir:
             os.makedirs(save_dir, exist_ok=True)
@@ -100,8 +125,18 @@ class Camera:
             "--no-banner",
             out_path,
         ]
+        if palette:
+            cmd.extend(["-p", palette])
         try:
-            subprocess.check_call(cmd, timeout=30)
+            with _capture_lock(device_id):
+                subprocess.check_call(cmd, timeout=30)
+                if not os.path.isfile(out_path) or os.path.getsize(out_path) == 0:
+                    raise CameraError(
+                        "Capture produced no output file; device may not support the requested format. "
+                        "Try setting UPPER_CAMERA_PALETTE=MJPEG or LOWER_CAMERA_PALETTE=MJPEG in .env for that camera."
+                    )
+                with open(out_path, "rb") as f:
+                    data = f.read()
         except subprocess.CalledProcessError as e:
             logger.exception("fswebcam capture failed: %s", e)
             raise CameraError(f"Capture failed: {e}") from e
@@ -109,9 +144,6 @@ class Camera:
             raise CameraError("fswebcam not installed (apt install fswebcam)") from None
         except subprocess.TimeoutExpired:
             raise CameraError("Capture timed out") from None
-
-        with open(out_path, "rb") as f:
-            data = f.read()
 
         return data, out_path if save_dir else None
 
@@ -131,7 +163,7 @@ class Camera:
             raise CameraError(
                 "Live stream requires opencv-python-headless: pip install opencv-python-headless"
             ) from None
-        device_path, _ = self._device_for_id(device_id)
+        device_path, _, _ = self._device_for_id(device_id)
         cap = cv2.VideoCapture(device_path)
         if not cap.isOpened():
             raise CameraError(f"Cannot open camera at {device_path}")
