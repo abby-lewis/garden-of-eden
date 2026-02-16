@@ -1,4 +1,8 @@
 from flask import Flask
+
+from app.models import db
+from .auth.routes import auth_blueprint
+from .auth.middleware import require_auth
 from .sensors.light.routes import light_blueprint
 from .sensors.pump.routes import pump_blueprint
 from .sensors.distance.routes import distance_blueprint
@@ -8,12 +12,39 @@ from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 
+
 def create_app(config_name):
     app = Flask(__name__)
+    try:
+        import config as project_config
+        app.config["SECRET_KEY"] = project_config.SECRET_KEY
+        app.config["AUTH_ENABLED"] = project_config.AUTH_ENABLED
+        app.config["SQLALCHEMY_DATABASE_URI"] = project_config.SQLALCHEMY_DATABASE_URI
+        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+        app.config["WEBAUTHN_RP_ID"] = project_config.WEBAUTHN_RP_ID
+        app.config["WEBAUTHN_ORIGIN"] = project_config.WEBAUTHN_ORIGIN
+        app.config["WEBAUTHN_RP_NAME"] = getattr(project_config, "WEBAUTHN_RP_NAME", "Garden of Eden")
+        app.config["JWT_ALGORITHM"] = project_config.JWT_ALGORITHM
+        app.config["JWT_EXPIRY_HOURS"] = project_config.JWT_EXPIRY_HOURS
+        app.config["ALLOWED_EMAILS"] = getattr(project_config, "ALLOWED_EMAILS", [])
+    except ImportError:
+        app.config["SECRET_KEY"] = "dev-secret"
+        app.config["AUTH_ENABLED"] = False
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///instance/garden.db"
+        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+        app.config["WEBAUTHN_RP_ID"] = "localhost"
+        app.config["WEBAUTHN_ORIGIN"] = "http://localhost:5173"
+        app.config["WEBAUTHN_RP_NAME"] = "Garden of Eden"
+        app.config["JWT_ALGORITHM"] = "HS256"
+        app.config["JWT_EXPIRY_HOURS"] = 24
+        app.config["ALLOWED_EMAILS"] = []
 
-    # from your_flask_app.config import Config
-    # app.config.from_object(Config)
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
 
+    require_auth(app)
+    app.register_blueprint(auth_blueprint)
     # Register blueprints
     app.register_blueprint(light_blueprint, url_prefix='/light')
     app.register_blueprint(pump_blueprint, url_prefix='/pump')
