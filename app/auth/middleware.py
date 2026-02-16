@@ -29,6 +29,7 @@ def require_auth(app):
             )
             g.current_user_id = int(payload["sub"])
             g.current_user_name = payload.get("name", "")
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            _log.warning("JWT verification failed: %s", e)
             return jsonify({"error": "Invalid or expired token"}), 401
         return None
