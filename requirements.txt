@@ -41,6 +41,6 @@ RPi.GPIO==0.7.1
 smbus==1.1.post2
 spidev==3.6
 sysv-ipc==1.1.0
-typing-extensions==4.10.0
+typing-extensions>=4.12.0
 werkzeug==3.0.1
 zipp==3.18.1
