@@ -9,7 +9,7 @@ This document describes every HTTP endpoint exposed by the garden-of-eden Flask 
 - **Response format**: Success responses are JSON unless noted (e.g. binary image/jpeg). Error responses are JSON with an `error` key (string message), unless the endpoint documents a different error shape (e.g. `message` for some validation errors).
 - **CORS**: CORS is enabled so browser clients on other origins (e.g. a deployed dashboard) can call the API.
 - **Sensor/hardware errors**: Endpoints that depend on hardware (sensors, light, pump, camera) may return `400` with a JSON body if the sensor is not initialized or unavailable.
-- **Authentication**: When `AUTH_ENABLED` is true, all endpoints except `/auth/*` require a JWT in the header: `Authorization: Bearer <token>`. The token is obtained by completing passkey (WebAuthn) login via `POST /auth/login`. Unauthenticated requests receive `401` with `{ "error": "Authentication required" }`.
+- **Authentication**: When `AUTH_ENABLED` is true, all endpoints except `/auth/*` require a JWT in the header: `Authorization: Bearer <token>`. The token is obtained by completing passkey (WebAuthn) login via `POST /auth/login`. Unauthenticated requests receive `401` with `{ "error": "Authentication required" }`. `OPTIONS` (CORS preflight) requests are not authenticated so the browser can complete the preflight before sending the actual request with the token.
 
 ---
 
@@ -242,7 +242,7 @@ Pump power stats from the INA219 sensor (when present). Useful for monitoring cu
 
 ## 4. Camera
 
-All camera endpoints require the Camera sensor to be initialized (fswebcam and configured USB devices). There is no authentication. Times are device local.
+All camera endpoints require the Camera sensor to be initialized (fswebcam and configured USB devices). When `AUTH_ENABLED` is true, camera endpoints require `Authorization: Bearer <token>` like other non-auth routes. Times are device local.
 
 ### GET /camera/upper
 
