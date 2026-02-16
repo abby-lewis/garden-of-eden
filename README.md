@@ -27,7 +27,7 @@ Work in progress. We should be picking up some steam here to give the DYI commun
     - [Testing](#testing)
     - [Controlling Individual Sensors](#controlling-individual-sensors)
     - [REST API](#rest-api)
-      - [Endpoints](#endpoints)
+      - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
     - [Cron Job](#cron-job)
   - [Hardware Overview](#hardware-overview)
@@ -256,6 +256,23 @@ The API listens on `0.0.0.0:5000` and prints the Pi IP. It exposes sensors (dist
 **API reference for developers:** Full endpoint documentation — request/response shapes, status codes, and examples — is in [docs/REST-API.md](docs/REST-API.md). Use that when building a frontend or any API client.
 
 **HTTPS setup:** Step-by-step guide for exposing the API over HTTPS (e.g. from outside your network): [docs/HTTPS-Setup.md](docs/HTTPS-Setup.md).
+
+#### Dashboard deployment and passkey auth
+
+The **API** runs on the Pi (e.g. `https://your-ddns-hostname:8444`). The **dashboard** (frontend) can be deployed elsewhere — for example Netlify — so users open the dashboard at a different URL (e.g. `https://your-app.netlify.app`), and the dashboard calls your API over the network.
+
+When passkey auth is enabled, the Pi must know the **dashboard’s** origin (where the user is when they sign in):
+
+| Where the dashboard runs | Set on the **Pi** `.env` |
+|--------------------------|---------------------------|
+| **Local dev** (e.g. Vite at `http://localhost:5173`) | `WEBAUTHN_RP_ID=localhost` and `WEBAUTHN_ORIGIN=http://localhost:5173` |
+| **Netlify** (e.g. `https://your-app.netlify.app`) | `WEBAUTHN_RP_ID=your-app.netlify.app` and `WEBAUTHN_ORIGIN=https://your-app.netlify.app` |
+| **Custom domain on Netlify** (e.g. `https://garden.example.com`) | `WEBAUTHN_RP_ID=garden.example.com` and `WEBAUTHN_ORIGIN=https://garden.example.com` |
+
+- **WEBAUTHN_RP_ID** = hostname of the dashboard only (no port). The Pi strips any `:port` if you add it.
+- **WEBAUTHN_ORIGIN** = full origin of the dashboard (scheme + host, plus port if not 443).
+
+The API URL stays the same (e.g. `https://manliestben.zapto.org:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.
 
 > **Note:** If `run.py` errors with `AttributeError: module 'dotenv' has no attribute 'find_dotenv'`, run `pip uninstall python-dotenv` and try again.
 

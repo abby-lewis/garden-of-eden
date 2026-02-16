@@ -13,7 +13,9 @@ _instance = Path(__file__).resolve().parent / "instance"
 _instance.mkdir(exist_ok=True)
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", f"sqlite:///{_instance}/garden.db")
 # WebAuthn: must match the origin of the dashboard (e.g. https://your-host:8444 or http://localhost:5173)
-WEBAUTHN_RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
+# RP ID is hostname only (no port) — WebAuthn requires this; we strip any :port if present
+_webauthn_rp_id_raw = os.getenv("WEBAUTHN_RP_ID", "localhost")
+WEBAUTHN_RP_ID = _webauthn_rp_id_raw.split(":")[0] if _webauthn_rp_id_raw else "localhost"
 WEBAUTHN_ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:5173")
 WEBAUTHN_RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "Garden of Eden")
 # JWT

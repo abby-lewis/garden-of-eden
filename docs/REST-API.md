@@ -17,6 +17,8 @@ This document describes every HTTP endpoint exposed by the garden-of-eden Flask 
 
 When auth is enabled, use these endpoints to register a passkey and sign in. After signing in, send the returned JWT as `Authorization: Bearer <token>` on every request to other endpoints.
 
+**Relying party ID:** The server uses `WEBAUTHN_RP_ID` (hostname only, **no port**). It must match the dashboard’s domain. If you see “The relying party ID is not a registrable domain suffix of, nor equal to the current domain”, set `WEBAUTHN_RP_ID` to the hostname only (e.g. `manliestben.zapto.org`), and `WEBAUTHN_ORIGIN` to the full origin including port (e.g. `https://manliestben.zapto.org:8444`).
+
 ### GET /auth/register/options
 
 Returns options for creating a new passkey. Used by the client with `navigator.credentials.create()`.
