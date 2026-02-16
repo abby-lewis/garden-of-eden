@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 from flask import Flask
 
 from app.models import db
@@ -11,6 +14,22 @@ from .sensors.humidity.routes import humidity_blueprint
 from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
+
+
+def _ensure_sqlite_dir(uri: str) -> None:
+    """If the database URI is SQLite, ensure the database file's parent directory exists."""
+    if not uri or not uri.startswith("sqlite"):
+        return
+    # sqlite:///path or sqlite:////absolute/path
+    match = re.match(r"sqlite:///(.+)$", uri)
+    if not match:
+        return
+    path = Path(match.group(1))
+    if not path.is_absolute():
+        # Resolve relative to project root (parent of app/)
+        root = Path(__file__).resolve().parent.parent
+        path = root / path
+    path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def create_app(config_name):
@@ -41,6 +60,7 @@ def create_app(config_name):
 
     db.init_app(app)
     with app.app_context():
+        _ensure_sqlite_dir(app.config["SQLALCHEMY_DATABASE_URI"])
         db.create_all()
 
     require_auth(app)
