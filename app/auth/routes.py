@@ -3,7 +3,9 @@ Passkey (WebAuthn) registration and authentication.
 """
 import json
 import logging
+import os
 import secrets
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app
 from webauthn import (
     generate_registration_options,
@@ -25,11 +27,31 @@ from app.models import db, User, WebAuthnCredential
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
 
+# User-facing message when registration is refused (email not in ALLOWED_EMAILS)
+REGISTRATION_REFUSED_MESSAGE = "Sorry, we're not accepting new users at this time!"
+
 # In-memory challenge storage (single process). Key: "registration" | "authentication"
 _challenges: dict[str, bytes] = {}
 # Store email for the in-progress registration (so register can find the user)
 _registration_email: str | None = None
 _log = logging.getLogger(__name__)
+
+
+def _log_registration_refused(email: str) -> None:
+    """Append a line to the registration-refused log file with request details."""
+    try:
+        log_dir = current_app.instance_path
+        log_path = os.path.join(log_dir, "registration_refused.log")
+        ts = datetime.now(timezone.utc).isoformat()
+        remote = request.remote_addr or ""
+        user_agent = (request.headers.get("User-Agent") or "").replace("\n", " ")
+        path = request.path or ""
+        method = request.method or ""
+        line = f"{ts}\trefused_email={email}\tremote={remote}\tmethod={method}\tpath={path}\tuser_agent={user_agent}\n"
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(line)
+    except OSError as e:
+        _log.warning("Could not write to registration_refused.log: %s", e)
 
 
 def _get_allowed_emails():
@@ -82,7 +104,8 @@ def register_options():
         if allowed and not email:
             return jsonify({"error": "Email is required"}), 400
         if allowed and email not in allowed:
-            return jsonify({"error": "This email is not allowed to register"}), 403
+            _log_registration_refused(email)
+            return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
         user = _get_or_create_user_for_email(email) if email else _get_or_create_user_for_email("")
         user_id, user_name, user_display_name = user.to_webauthn_user()
         rp_id = current_app.config["WEBAUTHN_RP_ID"]
@@ -126,7 +149,8 @@ def register():
         _registration_email = None
         allowed = _get_allowed_emails()
         if allowed and email not in allowed:
-            return jsonify({"error": "This email is not allowed to register"}), 403
+            _log_registration_refused(email)
+            return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
         user = _get_or_create_user_for_email(email) if email else _get_or_create_user_for_email("")
         origin = current_app.config["WEBAUTHN_ORIGIN"]
         rp_id = current_app.config["WEBAUTHN_RP_ID"]

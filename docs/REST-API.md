@@ -28,7 +28,7 @@ Returns options for creating a new passkey. Used by the client with `navigator.c
 | **Request** | Query: `email` (required when `ALLOWED_EMAILS` is set). No auth required. |
 | **Success 200** | JSON object suitable for `PublicKeyCredentialCreationOptions` (challenge, rp, user, pubKeyCredParams, etc.). Binary fields are base64url-encoded. |
 | **Error 400** | `{ "error": "Email is required" }` when `ALLOWED_EMAILS` is set and `email` is missing. |
-| **Error 403** | `{ "error": "This email is not allowed to register" }` when the email is not in `ALLOWED_EMAILS`. |
+| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when the email is not in `ALLOWED_EMAILS`. The attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
 
 ### POST /auth/register
 
@@ -39,7 +39,7 @@ Verifies the credential created by the client and stores it. Call after `navigat
 | **Request** | `{ "credential": <WebAuthn credential object>, "email": string (optional, required when ALLOWED_EMAILS is set) }` — the credential from the browser (binary fields base64url-encoded) and the same email used in register/options. |
 | **Success 200** | `{ "ok": true, "message": "Passkey registered" }` |
 | **Error 400** | `{ "error": string }` — e.g. invalid or expired challenge, verification failed. |
-| **Error 403** | `{ "error": "This email is not allowed to register" }` when the email is not in `ALLOWED_EMAILS`. |
+| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when the email is not in `ALLOWED_EMAILS`. The attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
 
 ### GET /auth/login/options
 
