@@ -27,5 +27,12 @@ logging.basicConfig(level=logging.INFO,
 app = create_app('default')
 CORS(app)
 
+# Start rule-based scheduler (runs every minute)
+try:
+    from app.schedules.scheduler import start_scheduler
+    start_scheduler()
+except Exception as e:
+    logging.warning("Schedule scheduler not started: %s", e)
+
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
