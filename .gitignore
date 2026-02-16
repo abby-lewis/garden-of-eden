@@ -8,3 +8,5 @@ venv/
 .env
 gardyn.log
 schedule_rules.json
+instance/
+*.db

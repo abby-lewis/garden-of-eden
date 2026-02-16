@@ -27,8 +27,9 @@ Work in progress. We should be picking up some steam here to give the DYI commun
     - [Testing](#testing)
     - [Controlling Individual Sensors](#controlling-individual-sensors)
     - [REST API](#rest-api)
-      - [Endpoints](#endpoints)
+      - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
+    - [Run on startup (Raspberry Pi)](#run-on-startup-raspberry-pi)
     - [Cron Job](#cron-job)
   - [Hardware Overview](#hardware-overview)
     - [Air Temp \& Humidity Sensor](#air-temp--humidity-sensor)
@@ -255,11 +256,57 @@ The API listens on `0.0.0.0:5000` and prints the Pi IP. It exposes sensors (dist
 
 **API reference for developers:** Full endpoint documentation — request/response shapes, status codes, and examples — is in [docs/REST-API.md](docs/REST-API.md). Use that when building a frontend or any API client.
 
+**HTTPS setup:** Step-by-step guide for exposing the API over HTTPS (e.g. from outside your network): [docs/HTTPS-Setup.md](docs/HTTPS-Setup.md).
+
+#### Dashboard deployment and passkey auth
+
+The **API** runs on the Pi (e.g. `https://your-ddns-hostname:8444`). The **dashboard** (frontend) can be deployed elsewhere — for example Netlify — so users open the dashboard at a different URL (e.g. `https://your-app.netlify.app`), and the dashboard calls your API over the network.
+
+When passkey auth is enabled, the Pi must know the **dashboard’s** origin (where the user is when they sign in):
+
+| Where the dashboard runs | Set on the **Pi** `.env` |
+|--------------------------|---------------------------|
+| **Local dev** (e.g. Vite at `http://localhost:5173`) | `WEBAUTHN_RP_ID=localhost` and `WEBAUTHN_ORIGIN=http://localhost:5173` |
+| **Netlify** (e.g. `https://your-app.netlify.app`) | `WEBAUTHN_RP_ID=your-app.netlify.app` and `WEBAUTHN_ORIGIN=https://your-app.netlify.app` |
+| **Custom domain on Netlify** (e.g. `https://garden.example.com`) | `WEBAUTHN_RP_ID=garden.example.com` and `WEBAUTHN_ORIGIN=https://garden.example.com` |
+
+- **WEBAUTHN_RP_ID** = hostname of the dashboard only (no port). The Pi strips any `:port` if you add it.
+- **WEBAUTHN_ORIGIN** = full origin of the dashboard (scheme + host, plus port if not 443).
+
+The API URL stays the same (e.g. `https://manliestben.zapto.org:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.
+
 > **Note:** If `run.py` errors with `AttributeError: module 'dotenv' has no attribute 'find_dotenv'`, run `pip uninstall python-dotenv` and try again.
 
 #### Postman
 
 Export this [Postman collection](https://www.postman.com/orange-shadow-8689/workspace/garden-of-eden/collection/8244324-e9d8f79e-d3f2-423e-b0d1-a4ca5b1b08ca?action=share&creator=8244324&active-environment=8244324-861384b4-b4e3-48a3-8da1-181705bd2d8c), add to your private workspace, add the `pi-ip` env variable and you should be good to go.
+
+### Run on startup (Raspberry Pi)
+
+To have the API (venv + `run.py`) start automatically on boot on a Raspberry Pi Zero 2W (or any Pi), use **systemd**.
+
+1. **Edit the service file**  
+   Copy the example unit file and set your project path and user:
+   ```bash
+   sudo cp docs/garden-of-eden.service /etc/systemd/system/
+   sudo nano /etc/systemd/system/garden-of-eden.service
+   ```
+   Update `User=` and the paths in `WorkingDirectory=` and `ExecStart=` if your repo is not under `/home/pi/garden-of-eden` (e.g. use `/home/gardyn/projects/garden-of-eden` and `User=gardyn` if that matches your setup).
+
+2. **Enable and start the service**
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable garden-of-eden
+   sudo systemctl start garden-of-eden
+   ```
+
+3. **Check status and logs**
+   ```bash
+   sudo systemctl status garden-of-eden
+   journalctl -u garden-of-eden -f
+   ```
+
+The service runs after the network is up (`network-online.target`), restarts on failure, and logs to the system journal.
 
 ### Cron Job
 
