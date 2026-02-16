@@ -140,16 +140,17 @@ The API listens on `0.0.0.0:5000` and prints the Pi IP. It exposes sensors (dist
 
 The **API** runs on the Pi (e.g. `https://your-ddns-hostname:8444`). The **dashboard** (frontend) can be deployed elsewhere — for example Netlify — so users open the dashboard at a different URL (e.g. `https://your-app.netlify.app`), and the dashboard calls your API over the network.
 
-When passkey auth is enabled, the Pi must know the **dashboard’s** origin (where the user is when they sign in):
+When passkey auth is enabled, the Pi must know the **dashboard’s** origin (where the user is when they sign in). You can use a single pair or support **both local and deployed** at once:
 
 | Where the dashboard runs | Set on the **Pi** `.env` |
 |--------------------------|---------------------------|
-| **Local dev** (e.g. Vite at `http://localhost:5173`) | `WEBAUTHN_RP_ID=localhost` and `WEBAUTHN_ORIGIN=http://localhost:5173` |
-| **Netlify** (e.g. `https://your-app.netlify.app`) | `WEBAUTHN_RP_ID=your-app.netlify.app` and `WEBAUTHN_ORIGIN=https://your-app.netlify.app` |
-| **Custom domain on Netlify** (e.g. `https://garden.example.com`) | `WEBAUTHN_RP_ID=garden.example.com` and `WEBAUTHN_ORIGIN=https://garden.example.com` |
+| **Local dev** (e.g. Vite at `http://localhost:5173`) | `WEBAUTHN_RP_ID_LOCAL=localhost` and `WEBAUTHN_ORIGIN_LOCAL=http://localhost:5173` |
+| **Deployed** (e.g. Netlify `https://your-app.netlify.app`) | `WEBAUTHN_RP_ID_PROD=your-app.netlify.app` and `WEBAUTHN_ORIGIN_PROD=https://your-app.netlify.app` |
 
-- **WEBAUTHN_RP_ID** = hostname of the dashboard only (no port). The Pi strips any `:port` if you add it.
-- **WEBAUTHN_ORIGIN** = full origin of the dashboard (scheme + host, plus port if not 443).
+- **ENVIRONMENT** = `local`, `prod`, or `both`. Use `both` (or leave unset when both pairs are set) so the server accepts requests from either origin — local and deployed dashboards work at the same time. Use `local` or `prod` to force a single pair.
+- **WEBAUTHN_RP_ID_LOCAL** / **WEBAUTHN_ORIGIN_LOCAL** = hostname and full origin for the local dashboard (no port in RP ID).
+- **WEBAUTHN_RP_ID_PROD** / **WEBAUTHN_ORIGIN_PROD** = hostname and full origin for the deployed dashboard.
+- **WEBAUTHN_RP_ID** and **WEBAUTHN_ORIGIN** = legacy single pair; used when ENVIRONMENT is set or as fallback.
 - **ALLOWED_EMAILS** = optional comma-separated list of email addresses that may register a passkey. When set, only those addresses can create an account (e.g. limit access to your household or family). If unset, a single default user is used. See `.env-dist` for the variable name; attempted registrations from non-allowed emails are refused with a friendly message and logged to a file.
 
 The API URL stays the same (e.g. `https://your-pi-hostname:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.

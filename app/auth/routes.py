@@ -85,11 +85,37 @@ def _get_or_create_user_for_email(email: str):
     return user
 
 
+def _get_webauthn_rp_id_and_origin():
+    """
+    Return (rp_id, origin) for the current request. Uses ENVIRONMENT and/or
+    request Origin to choose between LOCAL and PROD when both are configured.
+    """
+    env = current_app.config.get("ENVIRONMENT") or ""
+    origin_header = (request.headers.get("Origin") or "").strip()
+    rp_id_local = current_app.config.get("WEBAUTHN_RP_ID_LOCAL") or "localhost"
+    origin_local = current_app.config.get("WEBAUTHN_ORIGIN_LOCAL") or "http://localhost:5173"
+    rp_id_prod = (current_app.config.get("WEBAUTHN_RP_ID_PROD") or "").strip()
+    origin_prod = (current_app.config.get("WEBAUTHN_ORIGIN_PROD") or "").strip()
+    rp_id_fallback = current_app.config.get("WEBAUTHN_RP_ID") or "localhost"
+    origin_fallback = current_app.config.get("WEBAUTHN_ORIGIN") or "http://localhost:5173"
+
+    if env == "local":
+        return (rp_id_local, origin_local)
+    if env == "prod" and rp_id_prod and origin_prod:
+        return (rp_id_prod, origin_prod)
+
+    # ENVIRONMENT is "both" or unset: choose by request Origin so local and prod can work at once
+    if origin_header == origin_local:
+        return (rp_id_local, origin_local)
+    if origin_prod and origin_header == origin_prod:
+        return (rp_id_prod, origin_prod)
+
+    return (rp_id_fallback, origin_fallback)
+
+
 def _get_webauthn_config():
-    return {
-        "rp_id": current_app.config["WEBAUTHN_RP_ID"],
-        "origin": current_app.config["WEBAUTHN_ORIGIN"],
-    }
+    rp_id, origin = _get_webauthn_rp_id_and_origin()
+    return {"rp_id": rp_id, "origin": origin}
 
 
 # ---- Registration ----
@@ -108,7 +134,7 @@ def register_options():
             return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
         user = _get_or_create_user_for_email(email) if email else _get_or_create_user_for_email("")
         user_id, user_name, user_display_name = user.to_webauthn_user()
-        rp_id = current_app.config["WEBAUTHN_RP_ID"]
+        rp_id, _ = _get_webauthn_rp_id_and_origin()
         rp_name = current_app.config.get("WEBAUTHN_RP_NAME", "Garden of Eden")
         challenge = secrets.token_bytes(32)
         _challenges["registration"] = challenge
@@ -152,8 +178,7 @@ def register():
             _log_registration_refused(email)
             return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
         user = _get_or_create_user_for_email(email) if email else _get_or_create_user_for_email("")
-        origin = current_app.config["WEBAUTHN_ORIGIN"]
-        rp_id = current_app.config["WEBAUTHN_RP_ID"]
+        rp_id, origin = _get_webauthn_rp_id_and_origin()
         verification = verify_registration_response(
             credential=credential,
             expected_challenge=challenge,
@@ -186,7 +211,7 @@ def login_options():
         if creds:
             from webauthn.helpers.structs import PublicKeyCredentialDescriptor
             allow_credentials = [PublicKeyCredentialDescriptor(id=c.credential_id) for c in creds]
-        rp_id = current_app.config["WEBAUTHN_RP_ID"]
+        rp_id, _ = _get_webauthn_rp_id_and_origin()
         challenge = secrets.token_bytes(32)
         _challenges["authentication"] = challenge
         options = generate_authentication_options(
@@ -219,8 +244,7 @@ def login():
         cred = WebAuthnCredential.query.filter_by(credential_id=cred_id).first()
         if not cred:
             return jsonify({"error": "Unknown credential"}), 400
-        origin = current_app.config["WEBAUTHN_ORIGIN"]
-        rp_id = current_app.config["WEBAUTHN_RP_ID"]
+        rp_id, origin = _get_webauthn_rp_id_and_origin()
         verification = verify_authentication_response(
             credential=credential,
             expected_challenge=challenge,

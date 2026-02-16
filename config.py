@@ -14,9 +14,19 @@ _instance.mkdir(exist_ok=True)
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", f"sqlite:///{_instance}/garden.db")
 # WebAuthn: must match the origin of the dashboard (e.g. https://your-host:8444 or http://localhost:5173)
 # RP ID is hostname only (no port) — WebAuthn requires this; we strip any :port if present
+def _norm_rp_id(raw: str) -> str:
+    return (raw.split(":")[0] if raw else "").strip() or "localhost"
+
+_env = os.getenv("ENVIRONMENT", "").strip().lower()
+WEBAUTHN_RP_ID_LOCAL = _norm_rp_id(os.getenv("WEBAUTHN_RP_ID_LOCAL", "localhost"))
+WEBAUTHN_ORIGIN_LOCAL = os.getenv("WEBAUTHN_ORIGIN_LOCAL", "http://localhost:5173").strip()
+WEBAUTHN_RP_ID_PROD = _norm_rp_id(os.getenv("WEBAUTHN_RP_ID_PROD", ""))
+WEBAUTHN_ORIGIN_PROD = os.getenv("WEBAUTHN_ORIGIN_PROD", "").strip()
+# Single pair (legacy / when ENVIRONMENT selects one)
 _webauthn_rp_id_raw = os.getenv("WEBAUTHN_RP_ID", "localhost")
-WEBAUTHN_RP_ID = _webauthn_rp_id_raw.split(":")[0] if _webauthn_rp_id_raw else "localhost"
-WEBAUTHN_ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:5173")
+WEBAUTHN_RP_ID = _norm_rp_id(_webauthn_rp_id_raw)
+WEBAUTHN_ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:5173").strip()
+ENVIRONMENT = _env if _env in ("local", "prod", "both") else ""
 WEBAUTHN_RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "Garden of Eden")
 # JWT
 JWT_ALGORITHM = "HS256"

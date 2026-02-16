@@ -45,6 +45,11 @@ def create_app(config_name):
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["WEBAUTHN_RP_ID"] = project_config.WEBAUTHN_RP_ID
         app.config["WEBAUTHN_ORIGIN"] = project_config.WEBAUTHN_ORIGIN
+        app.config["WEBAUTHN_RP_ID_LOCAL"] = getattr(project_config, "WEBAUTHN_RP_ID_LOCAL", "localhost")
+        app.config["WEBAUTHN_ORIGIN_LOCAL"] = getattr(project_config, "WEBAUTHN_ORIGIN_LOCAL", "http://localhost:5173")
+        app.config["WEBAUTHN_RP_ID_PROD"] = getattr(project_config, "WEBAUTHN_RP_ID_PROD", "")
+        app.config["WEBAUTHN_ORIGIN_PROD"] = getattr(project_config, "WEBAUTHN_ORIGIN_PROD", "")
+        app.config["ENVIRONMENT"] = getattr(project_config, "ENVIRONMENT", "")
         app.config["WEBAUTHN_RP_NAME"] = getattr(project_config, "WEBAUTHN_RP_NAME", "Garden of Eden")
         app.config["JWT_ALGORITHM"] = project_config.JWT_ALGORITHM
         app.config["JWT_EXPIRY_HOURS"] = project_config.JWT_EXPIRY_HOURS
@@ -57,6 +62,11 @@ def create_app(config_name):
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["WEBAUTHN_RP_ID"] = "localhost"
         app.config["WEBAUTHN_ORIGIN"] = "http://localhost:5173"
+        app.config["WEBAUTHN_RP_ID_LOCAL"] = "localhost"
+        app.config["WEBAUTHN_ORIGIN_LOCAL"] = "http://localhost:5173"
+        app.config["WEBAUTHN_RP_ID_PROD"] = ""
+        app.config["WEBAUTHN_ORIGIN_PROD"] = ""
+        app.config["ENVIRONMENT"] = ""
         app.config["WEBAUTHN_RP_NAME"] = "Garden of Eden"
         app.config["JWT_ALGORITHM"] = "HS256"
         app.config["JWT_EXPIRY_HOURS"] = 24
