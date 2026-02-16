@@ -16,20 +16,23 @@ from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 
 
-def _ensure_sqlite_dir(uri: str) -> None:
-    """If the database URI is SQLite, ensure the database file's parent directory exists."""
+def _normalize_sqlite_uri(uri: str) -> str:
+    """
+    For SQLite URIs, resolve the path to absolute (relative to project root) and ensure
+    the database directory exists. Returns the URI to use (absolute path so CWD doesn't matter).
+    """
     if not uri or not uri.startswith("sqlite"):
-        return
-    # sqlite:///path or sqlite:////absolute/path
+        return uri
     match = re.match(r"sqlite:///(.+)$", uri)
     if not match:
-        return
+        return uri
     path = Path(match.group(1))
     if not path.is_absolute():
-        # Resolve relative to project root (parent of app/)
         root = Path(__file__).resolve().parent.parent
-        path = root / path
+        path = (root / path).resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Use absolute path so SQLite doesn't depend on process CWD (e.g. when run via systemd)
+    return f"sqlite:///{path}"
 
 
 def create_app(config_name):
@@ -46,10 +49,11 @@ def create_app(config_name):
         app.config["JWT_ALGORITHM"] = project_config.JWT_ALGORITHM
         app.config["JWT_EXPIRY_HOURS"] = project_config.JWT_EXPIRY_HOURS
         app.config["ALLOWED_EMAILS"] = getattr(project_config, "ALLOWED_EMAILS", [])
+        app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_sqlite_uri(app.config["SQLALCHEMY_DATABASE_URI"])
     except ImportError:
         app.config["SECRET_KEY"] = "dev-secret"
         app.config["AUTH_ENABLED"] = False
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///instance/garden.db"
+        app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_sqlite_uri("sqlite:///instance/garden.db")
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["WEBAUTHN_RP_ID"] = "localhost"
         app.config["WEBAUTHN_ORIGIN"] = "http://localhost:5173"
@@ -60,7 +64,6 @@ def create_app(config_name):
 
     db.init_app(app)
     with app.app_context():
-        _ensure_sqlite_dir(app.config["SQLALCHEMY_DATABASE_URI"])
         db.create_all()
 
     require_auth(app)
