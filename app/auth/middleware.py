@@ -15,6 +15,8 @@ def require_auth(app):
     def _check_auth():
         if not app.config.get("AUTH_ENABLED", True):
             return None
+        if request.method == "OPTIONS":
+            return None  # Let CORS handle preflight; don't require auth
         if request.path.startswith("/auth/"):
             return None
         auth = request.headers.get("Authorization")
