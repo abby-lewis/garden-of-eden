@@ -255,6 +255,8 @@ The API listens on `0.0.0.0:5000` and prints the Pi IP. It exposes sensors (dist
 
 **API reference for developers:** Full endpoint documentation — request/response shapes, status codes, and examples — is in [docs/REST-API.md](docs/REST-API.md). Use that when building a frontend or any API client.
 
+**HTTPS setup:** Step-by-step guide for exposing the API over HTTPS (e.g. from outside your network): [docs/HTTPS-Setup.md](docs/HTTPS-Setup.md).
+
 > **Note:** If `run.py` errors with `AttributeError: module 'dotenv' has no attribute 'find_dotenv'`, run `pip uninstall python-dotenv` and try again.
 
 #### Postman
