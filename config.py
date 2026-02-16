@@ -27,4 +27,15 @@ LOWER_CAMERA_DEVICE = os.getenv("LOWER_CAMERA_DEVICE", "/dev/video2")
 UPPER_IMAGE_PATH = os.getenv("UPPER_IMAGE_PATH", "/tmp/upper_camera.jpg")
 LOWER_IMAGE_PATH = os.getenv("LOWER_IMAGE_PATH", "/tmp/lower_camera.jpg")
 CAMERA_RESOLUTION = os.getenv("CAMERA_RESOLUTION", "640x480")
+# Optional: force palette for cameras that report "Unable to find a compatible palette format" (e.g. MJPEG, YUYV)
+UPPER_CAMERA_PALETTE = os.getenv("UPPER_CAMERA_PALETTE", "").strip() or None
+LOWER_CAMERA_PALETTE = os.getenv("LOWER_CAMERA_PALETTE", "").strip() or None
 IMAGE_INTERVAL_SECONDS = int(os.getenv("IMAGE_INTERVAL_SECONDS", "3600"))
+# Where to save "Capture & save" photos. Relative paths are relative to GARDYN_PROJECT_ROOT.
+CAMERA_PHOTOS_DIR = os.getenv("CAMERA_PHOTOS_DIR", "photos")
+GARDYN_PROJECT_ROOT = os.getenv("GARDYN_PROJECT_ROOT", os.getcwd())
+CAMERA_PHOTOS_DIR_RESOLVED = (
+    os.path.join(GARDYN_PROJECT_ROOT, CAMERA_PHOTOS_DIR)
+    if not os.path.isabs(CAMERA_PHOTOS_DIR)
+    else CAMERA_PHOTOS_DIR
+)

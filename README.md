@@ -276,7 +276,22 @@ python run.py
 [POST] http://<pi-ip>:5000/pump/speed body:{"value": 50 }
 [GET] http://<pi-ip>:5000/pump/speed
 [GET] http://<pi-ip>:5000/pump/stats
+
+[GET]  http://<pi-ip>:5000/camera/upper   (snapshot from upper camera, returns JPEG)
+[GET]  http://<pi-ip>:5000/camera/lower   (snapshot from lower camera, returns JPEG)
+[GET]  http://<pi-ip>:5000/camera/devices
+[POST] http://<pi-ip>:5000/camera/capture?device=0   (returns image/jpeg; device=0|1 or upper|lower)
+[POST] http://<pi-ip>:5000/camera/capture?device=0&save=1   (saves to CAMERA_PHOTOS_DIR, returns JSON with url)
+[GET]  http://<pi-ip>:5000/camera/photos   (list saved photos; requires CAMERA_PHOTOS_DIR)
+[GET]  http://<pi-ip>:5000/camera/photos/<filename>   (serve a saved photo)
 ```
+
+**Camera: photo serving**
+
+- **Return immediately**: `POST /camera/capture?device=0` returns the JPEG in the response body. Best for a “Take photo” button that shows the image right away (e.g. in an `<img>` via blob URL or in a modal).
+- **Store and serve**: Set `CAMERA_PHOTOS_DIR` in `.env` (e.g. `/var/lib/gardyn/photos`). Then `POST /camera/capture?device=0&save=1` saves the file and returns JSON with `url` (e.g. `/camera/photos/camera_0_1234567890.jpg`). Use `GET /camera/photos` to list and `GET /camera/photos/<filename>` to display. Best for a gallery or history. You can use both: capture with `save=1` and also use the response body as image if needed.
+
+**Live-ish view**: No live video stream; the client polls snapshot endpoints. Use `<img src="http://<pi-ip>:5000/camera/upper">` or `/camera/lower` and refresh periodically (e.g. every 2–5 seconds), or call `GET /camera/upper` / `GET /camera/lower` and display the returned JPEG. Requires `fswebcam` only.
 
 #### Postman
 
