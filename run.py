@@ -25,7 +25,8 @@ logging.basicConfig(level=logging.INFO,
 #logger = logging.getLogger(__name__)
 
 app = create_app('default')
-CORS(app)
+# Allow Authorization header so cross-origin requests (e.g. Netlify dashboard → Pi API) can send the JWT
+CORS(app, allow_headers=["Content-Type", "Authorization"], supports_credentials=False)
 
 # Start rule-based scheduler (runs every minute)
 try:
