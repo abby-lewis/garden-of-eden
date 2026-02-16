@@ -29,6 +29,7 @@ Work in progress. We should be picking up some steam here to give the DYI commun
     - [REST API](#rest-api)
       - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
+    - [Run on startup (Raspberry Pi)](#run-on-startup-raspberry-pi)
     - [Cron Job](#cron-job)
   - [Hardware Overview](#hardware-overview)
     - [Air Temp \& Humidity Sensor](#air-temp--humidity-sensor)
@@ -279,6 +280,33 @@ The API URL stays the same (e.g. `https://manliestben.zapto.org:8444`). In Netli
 #### Postman
 
 Export this [Postman collection](https://www.postman.com/orange-shadow-8689/workspace/garden-of-eden/collection/8244324-e9d8f79e-d3f2-423e-b0d1-a4ca5b1b08ca?action=share&creator=8244324&active-environment=8244324-861384b4-b4e3-48a3-8da1-181705bd2d8c), add to your private workspace, add the `pi-ip` env variable and you should be good to go.
+
+### Run on startup (Raspberry Pi)
+
+To have the API (venv + `run.py`) start automatically on boot on a Raspberry Pi Zero 2W (or any Pi), use **systemd**.
+
+1. **Edit the service file**  
+   Copy the example unit file and set your project path and user:
+   ```bash
+   sudo cp docs/garden-of-eden.service /etc/systemd/system/
+   sudo nano /etc/systemd/system/garden-of-eden.service
+   ```
+   Update `User=` and the paths in `WorkingDirectory=` and `ExecStart=` if your repo is not under `/home/pi/garden-of-eden` (e.g. use `/home/gardyn/projects/garden-of-eden` and `User=gardyn` if that matches your setup).
+
+2. **Enable and start the service**
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable garden-of-eden
+   sudo systemctl start garden-of-eden
+   ```
+
+3. **Check status and logs**
+   ```bash
+   sudo systemctl status garden-of-eden
+   journalctl -u garden-of-eden -f
+   ```
+
+The service runs after the network is up (`network-online.target`), restarts on failure, and logs to the system journal.
 
 ### Cron Job
 
