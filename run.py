@@ -25,8 +25,25 @@ logging.basicConfig(level=logging.INFO,
 #logger = logging.getLogger(__name__)
 
 app = create_app('default')
-# Allow Authorization header so cross-origin requests (e.g. Netlify dashboard → Pi API) can send the JWT
-CORS(app, allow_headers=["Content-Type", "Authorization"], supports_credentials=False)
+
+# CORS: allow dashboard origins (local + prod) so browser allows requests from both.
+# Explicit origins ensure Access-Control-Allow-Origin is set on every response (including 401 and OPTIONS).
+try:
+    import config as _config
+    _origins = [_config.WEBAUTHN_ORIGIN_LOCAL]
+    if getattr(_config, "WEBAUTHN_ORIGIN_PROD", "").strip():
+        _origins.append(_config.WEBAUTHN_ORIGIN_PROD.strip())
+except Exception:
+    _origins = ["http://localhost:5173"]
+
+CORS(
+    app,
+    origins=_origins,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    supports_credentials=False,
+    expose_headers=None,
+)
 
 # Start rule-based scheduler (runs every minute)
 try:
