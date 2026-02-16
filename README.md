@@ -378,8 +378,8 @@ Two USB cameras.
 
 #### Devices
 
-- /dev/video0
-- /dev/video1
+- Default: `/dev/video0` (upper), `/dev/video2` (lower). Override with `UPPER_CAMERA_DEVICE` and `LOWER_CAMERA_DEVICE` in `.env`.
+- The process running the app must be able to read the camera devices (e.g. add the user to the `video` group: `sudo usermod -aG video $USER`).
 
 ### Water Level Sensor
 
