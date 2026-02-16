@@ -77,7 +77,7 @@ def _current_hm():
 def _apply_light_rules(now_hm):
     """Compute desired brightness from all enabled light rules and apply. Last matching rule wins."""
     rules = get_all_rules()
-    light_rules = [r for r in rules if r.get("type") == "light" and r.get("enabled", True)]
+    light_rules = [r for r in rules if r.get("type") == "light" and r.get("enabled", True) and not r.get("paused", False)]
     if not light_rules:
         return
 
@@ -142,7 +142,7 @@ def _apply_pump_rules(now_dt, now_hm):
     pump = _get_pump_control()
     to_add = []
     for r in rules:
-        if r.get("type") != "pump" or not r.get("enabled", True):
+        if r.get("type") != "pump" or not r.get("enabled", True) or r.get("paused", False):
             continue
         if r.get("time") != now_str:
             continue
@@ -174,8 +174,18 @@ def _tick():
 
 
 def _scheduler_loop(stop_event):
-    """Run every minute until stop_event is set."""
+    """
+    Run every minute until stop_event is set.
+    On startup, runs one tick immediately so after a reboot or power loss the correct
+    light state is applied right away (e.g. lights 9AM-4PM: if Pi boots at 10AM, lights
+    turn on within a second). Pump rules that were supposed to run while the Pi was off
+    are not run retroactively.
+    """
     import time
+    try:
+        _tick()
+    except Exception as e:
+        logger.exception("Scheduler initial tick failed: %s", e)
     while not stop_event.wait(timeout=60):
         try:
             _tick()

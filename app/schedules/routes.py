@@ -45,6 +45,7 @@ def _validate_light_rule(body):
         "end_time": end,
         "brightness_pct": brightness,
         "enabled": body.get("enabled", True),
+        "paused": body.get("paused", False),
     }
 
 
@@ -64,6 +65,7 @@ def _validate_pump_rule(body):
         "time": time_str,
         "duration_minutes": duration,
         "enabled": body.get("enabled", True),
+        "paused": body.get("paused", False),
     }
 
 
