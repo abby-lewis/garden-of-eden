@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/garden-of-eden
-ExecStart=/home/pi/garden-of-eden/venv/bin/python run.py
+User=gardyn
+WorkingDirectory=/home/gardyn/garden-of-eden
+ExecStart=/home/gardyn/garden-of-eden/venv/bin/python run.py
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
