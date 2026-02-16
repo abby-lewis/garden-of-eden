@@ -10,7 +10,7 @@ If you are interested in collaborating please review the [CONTRIBUTORS](CONTRIBU
 
 Work in progress. We should be picking up some steam here to give the DYI community the features you deserve.
 
-[Milestones](https://github.com/iot-root/garden-of-eden/milestones)
+[Milestones](https://github.com/abby-lewis/garden-of-eden/milestones)
 
 ![image](https://github.com/user-attachments/assets/403248f5-b7d4-4cb1-921a-0458f515f387)
 
@@ -23,13 +23,13 @@ Work in progress. We should be picking up some steam here to give the DYI commun
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
   - [Usage](#usage)
-    - [Quick Toggle Guide](#quick-toggle-guide)
     - [MQTT with Home Assistant](#mqtt-with-homeassistant)
     - [Testing](#testing)
     - [REST API](#rest-api)
       - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
     - [Run on startup (Raspberry Pi)](#run-on-startup-raspberry-pi)
+    - [Quick Toggle Guide](#quick-toggle-guide)
   - [Hardware Overview](#hardware-overview)
   - [Design Decisions](#design-decisions)
     - [Python Version 3.6 \>=](#python-version-36-)
@@ -41,11 +41,11 @@ Work in progress. We should be picking up some steam here to give the DYI commun
 
 ### Prerequisites
 
-Start with a clean install of Linux. Use the [RaspberryPi Imager](https://www.raspberrypi.com/software/). Ensure ssh and wifi is setup. Once the image is written, pop the SDcard into the pi and ssh into it.
+Start with a clean install of Linux. Use the [RaspberryPi Imager](https://www.raspberrypi.com/software/). This project was developed for the **Raspberry Pi Zero 2 W** and has not been tested on the earlier Raspberry Pi Zero W. Ensure ssh and wifi is setup. Once the image is written, pop the SDcard into the pi and ssh into it.
 
 ```bash
 # clone repo
-git clone git@github.com:iot-root/garden-of-eden.git
+git clone git@github.com:abby-lewis/garden-of-eden.git
 cd garden-of-eden 
 ```
 
@@ -70,21 +70,6 @@ sudo systemctl status mqtt.service
 ```
 
 ## Usage
-
-### Quick Toggle Guide
-
-> Ensure your press is quick and within the time frame for the action to register correctly. The press time window can be modified directly in the `mqtt.py` file.
-
-- **One Press** (within 1 second): 
-  - **Action**: Toggles the **Lights** on or off. 
-  - **Description**: A single, swift press will illuminate or darken your space with ease.
-
-- **Two Presses** (within 1 second): 
-  - **Action**: Toggles the **Pump** on or off.
-  - **Description**: Need to water the garden or fill up the pool? Double tap for action!
-
-You can use the button to control lights and pump during app development when the API or dashboard are not available.
-
 
 ### MQTT with Home Assistant
 
@@ -174,6 +159,20 @@ To have the API (venv + `run.py`) start automatically on boot on a Raspberry Pi 
    ```
 
 The service runs after the network is up (`network-online.target`), restarts on failure, and logs to the system journal.
+
+### Quick Toggle Guide
+
+You can use the physical button to control lights and pump during app development when the API or dashboard are not available.
+
+> Ensure your press is quick and within the time frame for the action to register correctly. The press time window can be modified directly in the `mqtt.py` file.
+
+- **One Press** (within 1 second): 
+  - **Action**: Toggles the **Lights** on or off. 
+  - **Description**: A single, swift press will illuminate or darken your space with ease.
+
+- **Two Presses** (within 1 second): 
+  - **Action**: Toggles the **Pump** on or off.
+  - **Description**: Need to water the garden or fill up the pool? Double tap for action!
 
 ## Hardware Overview
 
