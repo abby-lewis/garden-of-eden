@@ -9,6 +9,66 @@ This document describes every HTTP endpoint exposed by the garden-of-eden Flask 
 - **Response format**: Success responses are JSON unless noted (e.g. binary image/jpeg). Error responses are JSON with an `error` key (string message), unless the endpoint documents a different error shape (e.g. `message` for some validation errors).
 - **CORS**: CORS is enabled so browser clients on other origins (e.g. a deployed dashboard) can call the API.
 - **Sensor/hardware errors**: Endpoints that depend on hardware (sensors, light, pump, camera) may return `400` with a JSON body if the sensor is not initialized or unavailable.
+- **Authentication**: When `AUTH_ENABLED` is true, all endpoints except `/auth/*` require a JWT in the header: `Authorization: Bearer <token>`. The token is obtained by completing passkey (WebAuthn) login via `POST /auth/login`. Unauthenticated requests receive `401` with `{ "error": "Authentication required" }`. `OPTIONS` (CORS preflight) requests are not authenticated so the browser can complete the preflight before sending the actual request with the token.
+
+---
+
+## 0. Authentication (Passkey / WebAuthn)
+
+When auth is enabled, use these endpoints to register a passkey and sign in. After signing in, send the returned JWT as `Authorization: Bearer <token>` on every request to other endpoints.
+
+**Relying party ID:** The server uses `WEBAUTHN_RP_ID` (hostname only, **no port**). It must match the dashboard’s domain. If you see “The relying party ID is not a registrable domain suffix of, nor equal to the current domain”, set `WEBAUTHN_RP_ID` to the hostname only (e.g. `manliestben.zapto.org`), and `WEBAUTHN_ORIGIN` to the full origin including port (e.g. `https://manliestben.zapto.org:8444`).
+
+### GET /auth/register/options
+
+Returns options for creating a new passkey. Used by the client with `navigator.credentials.create()`.
+
+| | |
+|--|--|
+| **Request** | Query: `email` (required when `ALLOWED_EMAILS` is set). No auth required. |
+| **Success 200** | JSON object suitable for `PublicKeyCredentialCreationOptions` (challenge, rp, user, pubKeyCredParams, etc.). Binary fields are base64url-encoded. |
+| **Error 400** | `{ "error": "Email is required" }` when `ALLOWED_EMAILS` is set and `email` is missing. |
+| **Error 403** | `{ "error": "This email is not allowed to register" }` when the email is not in `ALLOWED_EMAILS`. |
+
+### POST /auth/register
+
+Verifies the credential created by the client and stores it. Call after `navigator.credentials.create()`.
+
+| | |
+|--|--|
+| **Request** | `{ "credential": <WebAuthn credential object>, "email": string (optional, required when ALLOWED_EMAILS is set) }` — the credential from the browser (binary fields base64url-encoded) and the same email used in register/options. |
+| **Success 200** | `{ "ok": true, "message": "Passkey registered" }` |
+| **Error 400** | `{ "error": string }` — e.g. invalid or expired challenge, verification failed. |
+| **Error 403** | `{ "error": "This email is not allowed to register" }` when the email is not in `ALLOWED_EMAILS`. |
+
+### GET /auth/login/options
+
+Returns options for signing in with a passkey. Used by the client with `navigator.credentials.get()`.
+
+| | |
+|--|--|
+| **Request** | No body. No auth required. |
+| **Success 200** | JSON object suitable for `PublicKeyCredentialRequestOptions` (challenge, allowCredentials, etc.). |
+
+### POST /auth/login
+
+Verifies the assertion from the client and returns a JWT. Call after `navigator.credentials.get()`.
+
+| | |
+|--|--|
+| **Request** | `{ "credential": <WebAuthn assertion object> }` — the credential from the browser, with binary fields base64url-encoded. |
+| **Success 200** | `{ "token": string, "user": { "id": number, "name": string } }` — use `token` in `Authorization: Bearer <token>`. |
+| **Error 400** | `{ "error": string }` — e.g. unknown credential, verification failed. |
+
+### GET /auth/me
+
+Returns the current user when the request includes a valid JWT. Optional; useful for checking session validity.
+
+| | |
+|--|--|
+| **Request** | Header: `Authorization: Bearer <token>`. |
+| **Success 200** | `{ "user": { "id": number, "name": string } }` |
+| **Error 401** | `{ "error": string }` — missing or invalid token. |
 
 ---
 
@@ -182,7 +242,7 @@ Pump power stats from the INA219 sensor (when present). Useful for monitoring cu
 
 ## 4. Camera
 
-All camera endpoints require the Camera sensor to be initialized (fswebcam and configured USB devices). There is no authentication. Times are device local.
+All camera endpoints require the Camera sensor to be initialized (fswebcam and configured USB devices). When `AUTH_ENABLED` is true, camera endpoints require `Authorization: Bearer <token>` like other non-auth routes. Times are device local.
 
 ### GET /camera/upper
 

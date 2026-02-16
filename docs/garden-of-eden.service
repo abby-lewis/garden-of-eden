@@ -1,0 +1,17 @@
+[Unit]
+Description=Garden of Eden Flask API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gardyn
+WorkingDirectory=/home/gardyn/garden-of-eden
+ExecStart=/home/gardyn/garden-of-eden/venv/bin/python run.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
