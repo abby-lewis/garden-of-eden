@@ -30,7 +30,6 @@ Work in progress. We should be picking up some steam here to give the DYI commun
       - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
     - [Run on startup (Raspberry Pi)](#run-on-startup-raspberry-pi)
-    - [Cron Job](#cron-job)
   - [Hardware Overview](#hardware-overview)
     - [Air Temp \& Humidity Sensor](#air-temp--humidity-sensor)
     - [Pump Power Monitor](#pump-power-monitor)
@@ -81,8 +80,8 @@ nano .env
 
 Install dependencies, and run services pigpiod, mqtt.service
 
-```
-./bin/setup.sh`
+```bash
+./bin/setup.sh
 ```
 
 Ensure the pigpiod daemon is running
@@ -308,35 +307,6 @@ To have the API (venv + `run.py`) start automatically on boot on a Raspberry Pi 
 
 The service runs after the network is up (`network-online.target`), restarts on failure, and logs to the system journal.
 
-### Cron Job
-
-Run `crontab -e`, select your preferred editor and then add the following job. Edit as needed.
-
-> Note: update your paths for the following...
-
-```text
-# †urn on lights at 6am, 9am, 5pm, and turn off at 8pm
-0 6 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/light/light.py --on --brightness 50
-0 9 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/light/light.py --on --brightness 70
-0 17 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/light/light.py --on --brightness 50
-0 20 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/light/light.py --off
-
-# Pump run at 8am for 5 minutes
-0 8 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --on --speed 100
-5 8 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --off
-
-# Pump run at 4pm 5 minutes
-0 16 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --on --speed 100
-5 16 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --off
-
-# Pump run at 9pm for 5 minutes
-0 21 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --on --speed 100
-5 21 * * * /home/gardyn/projects/garden-of-eden/venv/bin/python /home/gardyn/projects/garden-of-eden/app/sensors/pump/pump.py --off
-
-# Collect sensor data every 30 mins
-*/30 * * * * /home/gardyn/projects/garden-of-eden/bin/get-sensor-data.sh
-```
-
 ## Hardware Overview
 
 Depending on the system you have, here is a breakdown of the hardware.
@@ -470,27 +440,73 @@ Using `gpiozero` to leverage `pigpio` daemon which is hardware driven and more e
 ## Folder Structure
 
 ```text
-<gardyn-of-eden>
+garden-of-eden/
 ├── run.py
-├── app
-│   ├── __init__.py
-│   └── sensors
-│       ├── config.py
-│       ├── distance
-│       │   ├── distance.py
-│       │   ├── __init__.py
-│       │   └── routes.py
-│       ├── __init__.py
-│       ├── light
-│       │   ├── __init__.py
-│       │   ├── light.py
-│       │   └── routes.py
-│       └── pump
-│           ├── __init__.py
-│           ├── pump.py
-│           └── routes.py
-└── tests
+├── config.py
+├── mqtt.py
+├── requirements.txt
+├── app/
+│   ├── __init__.py
+│   ├── models.py
+│   ├── lib/
+│   │   ├── __init__.py
+│   │   └── lib.py
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   ├── middleware.py
+│   │   └── routes.py
+│   ├── schedules/
+│   │   ├── __init__.py
+│   │   ├── routes.py
+│   │   ├── scheduler.py
+│   │   └── store.py
+│   └── sensors/
+│       ├── __init__.py
+│       ├── temp_humidity_shared.py
+│       ├── camera/
+│       │   ├── __init__.py
+│       │   ├── camera.py
+│       │   └── routes.py
+│       ├── distance/
+│       │   ├── __init__.py
+│       │   ├── distance.py
+│       │   └── routes.py
+│       ├── humidity/
+│       │   ├── __init__.py
+│       │   ├── humidity.py
+│       │   └── routes.py
+│       ├── light/
+│       │   ├── __init__.py
+│       │   ├── light.py
+│       │   └── routes.py
+│       ├── pcb_temp/
+│       │   ├── __init__.py
+│       │   ├── pcb_temp.py
+│       │   ├── over_temp_monitor.py
+│       │   └── routes.py
+│       ├── pump/
+│       │   ├── __init__.py
+│       │   ├── pump.py
+│       │   ├── pump_power.py
+│       │   └── routes.py
+│       └── temperature/
+│           ├── __init__.py
+│           ├── temperature.py
+│           └── routes.py
+├── bin/
+│   ├── setup.sh
+│   ├── api-test.sh
+│   ├── get-sensor-data.sh
+│   └── ...
+├── docs/
+│   ├── REST-API.md
+│   ├── HTTPS-Setup.md
+│   ├── garden-of-eden.service
+│   └── ...
+├── services/
+└── tests/
     ├── __init__.py
+    ├── test_api.py
     ├── test_distance.py
     ├── test_light.py
     └── test_pump.py

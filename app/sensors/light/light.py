@@ -85,7 +85,7 @@ class Light:
             logging.info(f"Setting light duty_cycle to {duty_cycle_percentage}%")
             self.led.value = duty
         else:
-            raise ValueError("Speed must be between 0 and 100")
+            raise ValueError("Brightness must be between 0 and 100")
         
     def get_duty_cycle(self):
         """

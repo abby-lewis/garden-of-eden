@@ -9,7 +9,7 @@ This document describes every HTTP endpoint exposed by the garden-of-eden Flask 
 - **Response format**: Success responses are JSON unless noted (e.g. binary image/jpeg). Error responses are JSON with an `error` key (string message), unless the endpoint documents a different error shape (e.g. `message` for some validation errors).
 - **CORS**: CORS is enabled so browser clients on other origins (e.g. a deployed dashboard) can call the API.
 - **Sensor/hardware errors**: Endpoints that depend on hardware (sensors, light, pump, camera) may return `400` with a JSON body if the sensor is not initialized or unavailable.
-- **Authentication**: When `AUTH_ENABLED` is true, all endpoints except `/auth/*` require a JWT in the header: `Authorization: Bearer <token>`. The token is obtained by completing passkey (WebAuthn) login via `POST /auth/login`. Unauthenticated requests receive `401` with `{ "error": "Authentication required" }`. `OPTIONS` (CORS preflight) requests are not authenticated so the browser can complete the preflight before sending the actual request with the token.
+- **Authentication**: When `AUTH_ENABLED` is true, all endpoints except `/auth/*` require a JWT in the header: `Authorization: Bearer <token>`. The token is obtained by completing passkey (WebAuthn) login via `POST /auth/login`. Unauthenticated requests receive `401`: missing/invalid header yields `{ "error": "Authentication required" }`; invalid or expired token yields `{ "error": "Invalid or expired token" }`. `OPTIONS` (CORS preflight) requests are not authenticated.
 
 ---
 
@@ -170,7 +170,7 @@ Set light brightness. If the light was off, it is turned on at the given brightn
 |--|--|
 | **Request** | `Content-Type: application/json`. Body: `{ "value": number }` — integer or float, **0–100**. If omitted, defaults to 50. |
 | **Success 200** | `{ "message": "Light adjusted to <value>%" }` |
-| **Error 400** | `{ "message": string }` — e.g. "Speed must be between 0 and 100" (validation), or `{ "error": string }` for sensor failure. |
+| **Error 400** | `{ "message": string }` — e.g. "Brightness must be between 0 and 100" (validation), or `{ "error": string }` for sensor failure. |
 
 **Example:** `POST /light/brightness` with body `{"value": 75}`
 
@@ -222,7 +222,7 @@ Set pump speed. Does not turn the pump on by itself; combine with `POST /pump/on
 |--|--|
 | **Request** | `Content-Type: application/json`. Body: `{ "value": number }` — **0–100**. If omitted, defaults to 30. |
 | **Success 200** | `{ "message": "Pump adjusted to <value>% speed!" }` |
-| **Error 400** | `{ "message": string }` — e.g. "Speed must be between 0 and 1" (validation), or `{ "error": string }` for sensor failure. |
+| **Error 400** | `{ "message": string }` — e.g. "Speed must be between 0 and 100" (validation), or `{ "error": string }` for sensor failure. |
 
 ---
 
