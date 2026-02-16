@@ -123,7 +123,7 @@ python tests/test_distance.py
 
 ### REST API
 
-Activate the venv and run the server:
+Activate the venv and run the server only if you didn’t set up the [Run on startup](#run-on-startup-raspberry-pi) service earlier — if you did, the API is already running.
 
 ```bash
 source venv/bin/activate
