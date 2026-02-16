@@ -8,7 +8,7 @@ Use this if port 443 is already forwarded to another service (e.g. Home Assistan
 
 ## Prerequisites
 
-- DDNS hostname pointing to your home IP (e.g. `manliestben.zapto.org`).
+- DDNS hostname pointing to your home IP (e.g. `your-pi.example.com`).
 - Raspberry Pi running garden-of-eden (Flask on port 5000).
 - Port 443 remains forwarded to your other service (e.g. Home Assistant).
 
@@ -52,7 +52,7 @@ Or use the [official install instructions](https://caddy.com/docs/install) for y
 
 ## Step 3: Create the Caddyfile
 
-Replace `<your-ddns-hostname>` with your actual hostname (e.g. `manliestben.zapto.org`).
+Replace `<your-ddns-hostname>` with your actual hostname (e.g. `your-pi.example.com`).
 
 ```bash
 sudo nano /etc/caddy/Caddyfile
@@ -66,7 +66,7 @@ sudo nano /etc/caddy/Caddyfile
 }
 ```
 
-Replace `<your-ddns-hostname>` with your actual hostname (e.g. `manliestben.zapto.org`). Caddy will obtain and renew the certificate via HTTP-01 (port 80 must reach this Pi; see Step 1).
+Replace `<your-ddns-hostname>` with your actual hostname (e.g. `your-pi.example.com`). Caddy will obtain and renew the certificate via HTTP-01 (port 80 must reach this Pi; see Step 1).
 
 Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 

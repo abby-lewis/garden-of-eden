@@ -23,36 +23,14 @@ Work in progress. We should be picking up some steam here to give the DYI commun
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
   - [Usage](#usage)
-    - [MQTT with HomeAssistant](#mqtt-with-homeassistant)
+    - [Quick Toggle Guide](#quick-toggle-guide)
+    - [MQTT with Home Assistant](#mqtt-with-homeassistant)
     - [Testing](#testing)
-    - [Controlling Individual Sensors](#controlling-individual-sensors)
     - [REST API](#rest-api)
       - [Dashboard deployment and passkey auth](#dashboard-deployment-and-passkey-auth)
       - [Postman](#postman)
     - [Run on startup (Raspberry Pi)](#run-on-startup-raspberry-pi)
   - [Hardware Overview](#hardware-overview)
-    - [Air Temp \& Humidity Sensor](#air-temp--humidity-sensor)
-    - [Pump Power Monitor](#pump-power-monitor)
-    - [PCB Temp Sensor](#pcb-temp-sensor)
-    - [Lights](#lights)
-      - [Method](#method)
-      - [Pins](#pins)
-    - [Pump](#pump)
-      - [Method](#method-1)
-      - [Pins](#pins-1)
-    - [Camera](#camera)
-      - [Method](#method-2)
-      - [Devices](#devices)
-    - [Water Level Sensor](#water-level-sensor)
-      - [Pins](#pins-2)
-      - [Method](#method-3)
-      - [References](#references)
-    - [Momentary Button](#momentary-button)
-    - [Electrical Diagrams](#electrical-diagrams)
-      - [Sensors](#sensors)
-      - [Power and Header](#power-and-header)
-    - [Recommendations](#recommendations)
-      - [Upgrading the Pi Zero 2](#upgrading-the-pi-zero-2)
   - [Design Decisions](#design-decisions)
     - [Python Version 3.6 \>=](#python-version-36-)
     - [Delays in Reading Temp/Humidity data](#delays-in-reading-temphumidity-data)
@@ -93,7 +71,7 @@ sudo systemctl status mqtt.service
 
 ## Usage
 
-## Quick Toggle Guide
+### Quick Toggle Guide
 
 > Ensure your press is quick and within the time frame for the action to register correctly. The press time window can be modified directly in the `mqtt.py` file.
 
@@ -105,108 +83,12 @@ sudo systemctl status mqtt.service
   - **Action**: Toggles the **Pump** on or off.
   - **Description**: Need to water the garden or fill up the pool? Double tap for action!
 
-
-### MQTT with HomeAssistant
-
-For homeassistant:
-
-You need a mqtt broker either on the gardyn pi or homeassistant.
-
-To install on the pi run
-
-```
-sudo apt-get install mosquitto mosquitto-clients
-```
-
-Add mqtt-broker username and password:
-
-`sudo mosquitto_passwd -c /etc/mosquitto/passwd <USERNAME>`
-
-> Note: make sure to update the .env file which is used by `config.py` for `mqtt.py`
-
-Run `sudo nano /etc/mosquitto/mosquitto.conf` and change the following lines to match:
-
-```
-allow_anonymous false
-password_file /etc/mosquitto/passwd
-listener 1883
-```
+You can use the button to control lights and pump during app development when the API or dashboard are not available.
 
 
-Here are some additional options that you could set in `/etc/mosquitto/mosquitto.conf`:
+### MQTT with Home Assistant
 
-```
-pid_file /run/mosquitto/mosquitto.pid
-
-persistence true
-persistence_location /var/lib/mosquitto/
-
-log_dest file /var/log/mosquitto/mosquitto.log
-
-listener 1883 0.0.0.0
-
-allow_anonymous false
-password_file /etc/mosquitto/passwd
-
-include_dir /etc/mosquitto/conf.d
-```
-
-
-Restart the service
-
-```
-sudo systemctl restart mosquitto
-```
-
-you just need to edit the `.env` with the mosquitto username and password created above in /etc/mosquitto/passwd.
-
-
-Check the configuration works:
-
-`sudo journalctl -xeu mosquitto.service`
-
-
-If you havent already, run `./bin/setup.sh`, this will install all OS dependencies, install the python libs, and run services pigpiod, mqtt.service
-
-Ensure the pigpiod, mqtt, and broker daemon is running
-
-```
-sudo systemctl status pigpiod
-sudo systemctl status mqtt.service
-sudo systemctl status mosquitto
-```
-
-Go to your homeassistant instance:
-If your broker is on the gardyn pi, make sure to install the service mqtt, go to settings->devices&services->mqtt and add your gardyn pi host, port, username and password.
-The device should then appear in your homeassistant discovery settings.
-
-To test locally on gardyn pi:
-
-Light:
-
-```
-mosquitto_pub -t "gardyn/light/command" -m "ON" -u gardyn -P "somepassword"
-mosquitto_pub -t "gardyn/light/command" -m "OFF" -u gardyn -P "somepassword"
-```
-
-Pump:
-
-```
-mosquitto_pub -t "gardyn/pump/command" -m "ON" -u gardyn -P "somepassword"
-mosquitto_pub -t "gardyn/pump/command" -m "OFF" -u gardyn -P "somepassword"
-```
-
-Sensors:
-
-Open two terminals on the gardyn pi, in one run:
-
-`mosquitto_sub -t "gardyn/water/level" -u gardyn -P "somepassword"`
-
-In the second gardyn pi terminal, run:
-
-`mosquitto_pub -t "gardyn/water/level/get" -m ""-r  -u gardyn -P "somepassword"`
-
-```
+For broker setup, Home Assistant integration, and local testing, see **[docs/MQTT.md](docs/MQTT.md)**.
 
 ### Testing
 
@@ -225,21 +107,6 @@ python -m unittest -v
 
 # individual tests
 python tests/test_distance.py
-```
-
-### Controlling Individual Sensors
-
-Activate python venv `source venv/bin/activate`
-
-Examples:
-
-```bash
-python app/sensors/distance/distance.py
-python app/sensors/humidity/humidity.py
-python app/sensors/light/light.py [--on] [--off] [--brightness INT%]
-python app/sensors/pcb_temp/pcb_temp.py
-python app/sensors/pump/pump.py [--on] [--off] [--speed INT%] [--factory-host STR%] [--factory-port INT%]
-python app/sensors/temperature/temperature.py
 ```
 
 ### REST API
@@ -272,7 +139,7 @@ When passkey auth is enabled, the Pi must know the **dashboard’s** origin (whe
 - **WEBAUTHN_RP_ID** = hostname of the dashboard only (no port). The Pi strips any `:port` if you add it.
 - **WEBAUTHN_ORIGIN** = full origin of the dashboard (scheme + host, plus port if not 443).
 
-The API URL stays the same (e.g. `https://manliestben.zapto.org:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.
+The API URL stays the same (e.g. `https://your-pi-hostname:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.
 
 > **Note:** If `run.py` errors with `AttributeError: module 'dotenv' has no attribute 'find_dotenv'`, run `pip uninstall python-dotenv` and try again.
 
@@ -309,119 +176,7 @@ The service runs after the network is up (`network-online.target`), restarts on 
 
 ## Hardware Overview
 
-Depending on the system you have, here is a breakdown of the hardware.
-
-Notes:
-
-- GPIO num is different than pin number. See (<https://pinout.xyz/>)
-
-### Air Temp & Humidity Sensor
-
-- temp/humidity sensor AM2320 at address of `0x38`
-
-### Pump Power Monitor
-
-- motor power usage sensor INA219 at address of `0x40`
-
-### PCB Temp Sensor
-
-- pcb temp sensor PCT2075 at address `pf 0x48`
-
-When you run `sudo i2cdetect -y 1`, you should see something like:
-
-```
-     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-00:          -- -- -- -- -- -- -- -- -- -- -- -- --
-10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-30: -- -- -- -- -- -- -- -- 38 -- -- -- -- -- -- --
-40: 40 -- -- -- -- -- -- -- 48 -- -- -- -- -- -- --
-50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-70: -- -- -- -- -- -- -- --
-```
-
-### Lights
-
-LED full spectrum lights.
-
-#### Method
-
-- Lights are driven by PWM duty and a frequency of 8 kHz.
-
-#### Pins
-
-- [GPIO-18 | PIN-12](https://pinout.xyz/pinout/pin12_gpio18/)
-
-### Pump
-
-#### Method
-
-- The pump is driven by PWM with max duty of 30% and frequency of 50 Hz
-- There is a current sensor to measure pump draw and a overtemp sensor to determine if board monitor PCB temp.
-
-#### Pins
-
-- [GPIO-24 | PIN-18](https://pinout.xyz/pinout/pin18_gpio24/)
-
-Notes:
-
-- Pump duty cycle is limited, likely full on is too much current draw for the system.
-
-### Camera
-
-Two USB cameras.
-
-#### Method
-
-- image capture with fswebcam
-
-#### Devices
-
-- Default: `/dev/video0` (upper), `/dev/video2` (lower). Override with `UPPER_CAMERA_DEVICE` and `LOWER_CAMERA_DEVICE` in `.env`.
-- The process running the app must be able to read the camera devices (e.g. add the user to the `video` group: `sudo usermod -aG video $USER`).
-
-### Water Level Sensor
-
-Uses the ultrasonic distance sensor DYP-A01-V2.0.
-
-#### Pins
-
-- [GPIO-19 | PIN-35](https://pinout.xyz/pinout/pin35_gpio19/): water level in (trigger)
-- [GPIO-26 | PIN-37](https://pinout.xyz/pinout/pin37_gpio26/): water level out (echo)
-
-#### Method
-
-- Uses time between the echo and response to deterine the distances.
-
-#### References
-
-- <https://www.google.com/search?q=DYP-A01-V2.0>
-- <https://www.dypcn.com/uploads/A02-Datasheet.pdf>
-
-### Momentary Button
-
-`<section incomplete>`
-
-### Electrical Diagrams
-
-Incase you need to troubleshoot any problems with your system.
-
-#### Sensors
-
-<img src="docs/pcb1.png" width="800px">
-
-#### Power and Header
-
-<img src="docs/pcb2.png" width="800px">
-
-### Recommendations
-
-#### Upgrading the Pi Zero 2
-
-For better performance, the Pi Zero can be replaced with a Pi Zero 2. This will enable the use of VS Code Remote Server to edit files and debug the python code remotely. The VS Code remote server uses OpenSSH and the minimum architecture is ARMv7.
-
-> Buy one **without** a header, you will need to solder one on in the opposite direction.
+Sensors, pins, cameras, and diagrams are documented in **[docs/Hardware-Overview.md](docs/Hardware-Overview.md)**.
 
 ## Design Decisions
 
