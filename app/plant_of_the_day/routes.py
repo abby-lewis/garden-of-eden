@@ -13,7 +13,6 @@ def get_plant_of_the_day():
     plant = store.get_current_plant(current_app)
     if plant is None:
         return jsonify({"error": "No plant of the day set"}), 404
-    # Include server-computed Wikipedia URL so the modal always shows the correct link
     out = dict(plant)
     out["wikipedia_url"] = _wikipedia_url(plant)
     return jsonify(out)
