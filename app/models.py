@@ -61,6 +61,11 @@ class AppSettings(db.Model):
     humidity_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
     air_temp_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
     pcb_temp_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    # Slack notifications (webhook from settings overrides SLACK_WEBHOOK_URL env)
+    slack_webhook_url: Mapped[str | None] = mapped_column(nullable=True, default=None)
+    slack_cooldown_minutes: Mapped[int] = mapped_column(nullable=False, default=15)
+    slack_notifications_enabled: Mapped[bool] = mapped_column(nullable=False, default=True)
+    slack_runtime_errors_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     def to_dict(self):
         return {
@@ -82,4 +87,8 @@ class AppSettings(db.Model):
             "humidity_alerts_enabled": self.humidity_alerts_enabled,
             "air_temp_alerts_enabled": self.air_temp_alerts_enabled,
             "pcb_temp_alerts_enabled": self.pcb_temp_alerts_enabled,
+            "slack_webhook_url": self.slack_webhook_url,
+            "slack_cooldown_minutes": self.slack_cooldown_minutes,
+            "slack_notifications_enabled": self.slack_notifications_enabled,
+            "slack_runtime_errors_enabled": self.slack_runtime_errors_enabled,
         }

@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from flask import Flask
+from sqlalchemy import text
 
 from app.models import db
 from .auth.routes import auth_blueprint
@@ -15,6 +16,41 @@ from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 from .settings.routes import settings_blueprint
+
+
+def _migrate_app_settings_slack(app):
+    """Add Slack-related columns to app_settings if missing (for existing DBs)."""
+    from app.models import db
+    with db.engine.connect() as conn:
+        try:
+            r = conn.execute(text("PRAGMA table_info(app_settings)"))
+            cols = {row[1] for row in r}
+        except Exception:
+            return
+        for col, spec in [
+            ("slack_webhook_url", "TEXT"),
+            ("slack_cooldown_minutes", "INTEGER NOT NULL DEFAULT 15"),
+            ("slack_notifications_enabled", "INTEGER NOT NULL DEFAULT 1"),
+            ("slack_runtime_errors_enabled", "INTEGER NOT NULL DEFAULT 0"),
+        ]:
+            if col not in cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE app_settings ADD COLUMN {col} {spec}"))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+
+
+def _register_error_handlers(app):
+    """Send Slack notification on 500 if runtime errors enabled in settings."""
+    @app.errorhandler(500)
+    def handle_500(e):
+        try:
+            from app.alerts.slack import send_runtime_error
+            send_runtime_error(app, e, "HTTP 500")
+        except Exception:
+            pass
+        return {"error": "Internal Server Error"}, 500
 
 
 def _normalize_sqlite_uri(uri: str) -> str:
@@ -78,8 +114,10 @@ def create_app(config_name):
     db.init_app(app)
     with app.app_context():
         db.create_all()
+        _migrate_app_settings_slack(app)
 
     require_auth(app)
+    _register_error_handlers(app)
     app.register_blueprint(auth_blueprint)
     # Register blueprints
     app.register_blueprint(light_blueprint, url_prefix='/light')
