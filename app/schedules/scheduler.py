@@ -3,6 +3,10 @@ Background scheduler that applies schedule rules every minute.
 Light: desired brightness is computed from all enabled light rules (last matching rule wins).
 Pump: at trigger time turn on for N minutes; track off times and turn off when due.
 
+Server-side overrides (stored in schedule_rules.json):
+- light_rules_paused_until / pump_rules_paused_until: skip that rule type until the given time.
+- manual_pump_off_at: turn pump off at this time (for manual watering).
+
 All rule times (start_time, end_time, time) are in device local time. Set the Pi's
 timezone to America/Chicago (Central) so rules match the times shown in the dashboard.
 """
@@ -10,7 +14,13 @@ import logging
 from datetime import datetime, timedelta
 from threading import Thread, Event
 
-from .store import get_all_rules
+from .store import (
+    get_all_rules,
+    get_light_rules_paused_until,
+    get_pump_rules_paused_until,
+    get_manual_pump_off_at,
+    set_manual_pump_off_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +84,23 @@ def _current_hm():
     return (now.hour, now.minute)
 
 
+def _parse_iso(s):
+    """Parse ISO datetime string to naive datetime, or None if invalid/None."""
+    if not s:
+        return None
+    try:
+        s = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
+    except (ValueError, TypeError):
+        return None
+
+
 def _apply_light_rules(now_hm):
     """Compute desired brightness from all enabled light rules and apply. Last matching rule wins."""
+    until = _parse_iso(get_light_rules_paused_until())
+    if until is not None and datetime.now() < until:
+        return
     rules = get_all_rules()
     light_rules = [r for r in rules if r.get("type") == "light" and r.get("enabled", True) and not r.get("paused", False)]
     if not light_rules:
@@ -136,7 +161,21 @@ def _apply_pump_rules(now_dt, now_hm):
         if _pump_off_lock is not None:
             _pump_off_lock.release()
 
-    # 2) Fire pump rules at current time
+    # 2) If manual pump off time reached, turn pump off and clear
+    off_at = _parse_iso(get_manual_pump_off_at())
+    if off_at is not None and now_dt >= off_at:
+        if pump:
+            try:
+                pump.off()
+                logger.info("Scheduler: pump off (manual watering ended)")
+            except Exception as e:
+                logger.warning("Scheduler could not turn pump off: %s", e)
+        set_manual_pump_off_at(None)
+
+    # 3) Fire pump rules at current time (unless pump rules are paused)
+    until = _parse_iso(get_pump_rules_paused_until())
+    if until is not None and now_dt < until:
+        return
     rules = get_all_rules()
     now_str = "%02d:%02d" % (now_hm[0], now_hm[1])
     pump = _get_pump_control()
