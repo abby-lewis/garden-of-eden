@@ -1,9 +1,22 @@
 """
 REST API for schedule rules: list, create, update, delete.
+Also: pause light/pump rules for N minutes (server-side), and schedule manual pump off.
 """
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 
-from .store import get_all_rules, get_rule, add_rule, update_rule, delete_rule
+from .store import (
+    get_all_rules,
+    get_rule,
+    add_rule,
+    update_rule,
+    delete_rule,
+    get_light_rules_paused_until,
+    get_pump_rules_paused_until,
+    set_light_rules_paused_until,
+    set_pump_rules_paused_until,
+    set_manual_pump_off_at,
+)
 
 schedule_blueprint = Blueprint("schedule", __name__)
 
@@ -71,8 +84,12 @@ def _validate_pump_rule(body):
 
 @schedule_blueprint.route("", methods=["GET"])
 def list_rules():
-    """Return all rules."""
-    return jsonify(rules=get_all_rules())
+    """Return all rules and server-side pause-until times (for overlay UI)."""
+    return jsonify(
+        rules=get_all_rules(),
+        light_rules_paused_until=get_light_rules_paused_until(),
+        pump_rules_paused_until=get_pump_rules_paused_until(),
+    )
 
 
 @schedule_blueprint.route("/<rule_id>", methods=["GET"])
@@ -134,3 +151,64 @@ def delete_one_rule(rule_id):
     if delete_rule(rule_id):
         return "", 204
     return jsonify(error="Rule not found"), 404
+
+
+def _parse_minutes(body, key="minutes", default=60, min_val=1, max_val=1440):
+    """Parse minutes from JSON body. Returns (error_response, minutes or None)."""
+    try:
+        n = int(body.get(key, default))
+        if min_val <= n <= max_val:
+            return None, n
+    except (TypeError, ValueError):
+        pass
+    return jsonify(error=f"{key} must be an integer between {min_val} and {max_val}"), None
+
+
+@schedule_blueprint.route("/pause-light-rules", methods=["POST"])
+def pause_light_rules():
+    """Pause all light rules until now + body.minutes. Server holds the restore time."""
+    body = request.get_json() or {}
+    err, minutes = _parse_minutes(body, default=60, max_val=1440)
+    if err:
+        return err, 400
+    until = datetime.now() + timedelta(minutes=minutes)
+    set_light_rules_paused_until(until.isoformat())
+    return "", 204
+
+
+@schedule_blueprint.route("/pause-pump-rules", methods=["POST"])
+def pause_pump_rules():
+    """Pause all pump rules until now + body.minutes. Server holds the restore time."""
+    body = request.get_json() or {}
+    err, minutes = _parse_minutes(body, default=60, max_val=1440)
+    if err:
+        return err, 400
+    until = datetime.now() + timedelta(minutes=minutes)
+    set_pump_rules_paused_until(until.isoformat())
+    return "", 204
+
+
+@schedule_blueprint.route("/manual-pump-off", methods=["POST"])
+def manual_pump_off():
+    """Schedule pump to turn off in body.minutes. Scheduler will turn pump off at that time."""
+    body = request.get_json() or {}
+    err, minutes = _parse_minutes(body, default=5, max_val=120)
+    if err:
+        return err, 400
+    off_at = datetime.now() + timedelta(minutes=minutes)
+    set_manual_pump_off_at(off_at.isoformat())
+    return "", 204
+
+
+@schedule_blueprint.route("/resume-light-rules", methods=["POST"])
+def resume_light_rules():
+    """Clear light rules pause (resume rules immediately)."""
+    set_light_rules_paused_until(None)
+    return "", 204
+
+
+@schedule_blueprint.route("/resume-pump-rules", methods=["POST"])
+def resume_pump_rules():
+    """Clear pump rules pause (resume rules immediately)."""
+    set_pump_rules_paused_until(None)
+    return "", 204
