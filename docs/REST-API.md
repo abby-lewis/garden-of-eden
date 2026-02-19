@@ -17,6 +17,17 @@ This document describes every HTTP endpoint exposed by the garden-of-eden Flask 
 
 When auth is enabled, use these endpoints to register a passkey and sign in. After signing in, send the returned JWT as `Authorization: Bearer <token>` on every request to other endpoints.
 
+**ALLOW_NEW_USERS:** When set to `false` in the server `.env`, new user registration is disabled: `GET /auth/register/options` and `POST /auth/register` return `403` with the message "Sorry, we're not accepting new users at this time!". Login remains available. The frontend should call `GET /auth/config` and, when `allow_new_users` is false, hide the "create passkey" UI and show that message; the login UI should remain.
+
+### GET /auth/config
+
+Returns auth-related configuration for the frontend. No auth required. Use this to decide whether to show the passkey registration UI.
+
+| | |
+|--|--|
+| **Request** | No body. No auth required. |
+| **Success 200** | `{ "allow_new_users": boolean }` — when false, do not show registration UI; show "We're not accepting new users at this time." and keep login visible. |
+
 **Relying party ID and origin:** The server can use a single pair (`WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN`) or two pairs via **ENVIRONMENT** and `WEBAUTHN_RP_ID_LOCAL`, `WEBAUTHN_ORIGIN_LOCAL`, `WEBAUTHN_RP_ID_PROD`, `WEBAUTHN_ORIGIN_PROD`. Set **ENVIRONMENT=both** so local and deployed dashboards work at once; the server picks the pair from the request Origin. RP ID is hostname only (no port). For a single pair, use `WEBAUTHN_RP_ID` (hostname only, **no port**). It must match the dashboard’s domain. If you see “The relying party ID is not a registrable domain suffix of, nor equal to the current domain”, set `WEBAUTHN_RP_ID` to the hostname only (e.g. `your-pi.example.com`), and `WEBAUTHN_ORIGIN` to the full origin including port (e.g. `https://your-pi.example.com:8444`).
 
 ### GET /auth/register/options
@@ -28,7 +39,7 @@ Returns options for creating a new passkey. Used by the client with `navigator.c
 | **Request** | Query: `email` (required when `ALLOWED_EMAILS` is set). No auth required. |
 | **Success 200** | JSON object suitable for `PublicKeyCredentialCreationOptions` (challenge, rp, user, pubKeyCredParams, etc.). Binary fields are base64url-encoded. |
 | **Error 400** | `{ "error": "Email is required" }` when `ALLOWED_EMAILS` is set and `email` is missing. |
-| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when the email is not in `ALLOWED_EMAILS`. The attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
+| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when `ALLOW_NEW_USERS` is false, or when the email is not in `ALLOWED_EMAILS`. When email is refused, the attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
 
 ### POST /auth/register
 
@@ -39,7 +50,7 @@ Verifies the credential created by the client and stores it. Call after `navigat
 | **Request** | `{ "credential": <WebAuthn credential object>, "email": string (optional, required when ALLOWED_EMAILS is set) }` — the credential from the browser (binary fields base64url-encoded) and the same email used in register/options. |
 | **Success 200** | `{ "ok": true, "message": "Passkey registered" }` |
 | **Error 400** | `{ "error": string }` — e.g. invalid or expired challenge, verification failed. |
-| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when the email is not in `ALLOWED_EMAILS`. The attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
+| **Error 403** | `{ "error": "Sorry, we're not accepting new users at this time!" }` when `ALLOW_NEW_USERS` is false, or when the email is not in `ALLOWED_EMAILS`. When email is refused, the attempt is logged to `instance/registration_refused.log` (timestamp, email, IP, path, user-agent). |
 
 ### GET /auth/login/options
 

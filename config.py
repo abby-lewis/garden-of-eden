@@ -8,6 +8,7 @@ load_dotenv()
 # Auth and database (passkey auth)
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() in ("true", "1", "yes")
+ALLOW_NEW_USERS = os.getenv("ALLOW_NEW_USERS", "true").lower() in ("true", "1", "yes")
 # SQLite DB under instance/ so it's next to the app
 _instance = Path(__file__).resolve().parent / "instance"
 _instance.mkdir(exist_ok=True)
