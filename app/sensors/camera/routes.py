@@ -121,15 +121,38 @@ def list_photos():
         return jsonify(error=str(e)), 503
 
 
+def _validate_photo_filename(filename: str) -> bool:
+    """Reject path traversal and path separators."""
+    return bool(filename) and ".." not in filename and os.path.sep not in filename
+
+
 @camera_blueprint.route("/photos/<path:filename>", methods=["GET"])
 @check_sensor
 def get_photo(filename):
     """Serve a saved photo by filename (from project_root/photos by default)."""
     if not os.path.isdir(CAMERA_PHOTOS_DIR_RESOLVED):
         return jsonify(error="Photo directory not available"), 404
-    if ".." in filename or os.path.sep in filename:
+    if not _validate_photo_filename(filename):
         return jsonify(error="Invalid filename"), 400
     try:
         return send_from_directory(CAMERA_PHOTOS_DIR_RESOLVED, filename, mimetype="image/jpeg")
     except OSError:
         return jsonify(error="Not found"), 404
+
+
+@camera_blueprint.route("/photos/<path:filename>", methods=["DELETE"])
+@check_sensor
+def delete_photo(filename):
+    """Delete a saved photo by filename."""
+    if not os.path.isdir(CAMERA_PHOTOS_DIR_RESOLVED):
+        return jsonify(error="Photo directory not available"), 404
+    if not _validate_photo_filename(filename):
+        return jsonify(error="Invalid filename"), 400
+    path = os.path.join(CAMERA_PHOTOS_DIR_RESOLVED, filename)
+    if not os.path.isfile(path):
+        return jsonify(error="Not found"), 404
+    try:
+        os.remove(path)
+        return "", 204
+    except OSError as e:
+        return jsonify(error=str(e)), 500

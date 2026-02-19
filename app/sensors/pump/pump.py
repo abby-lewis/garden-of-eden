@@ -84,7 +84,7 @@ class Pump:
             print(f"Setting pump duty_cycle to {duty_cycle_percentage}%")
             self.pump.value = duty
         else:
-            raise ValueError("Speed must be between 0 and 1")
+            raise ValueError("Speed must be between 0 and 100")
     
     def get_duty_cycle(self):
         """
