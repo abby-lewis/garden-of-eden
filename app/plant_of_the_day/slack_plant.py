@@ -47,21 +47,14 @@ def _wikipedia_page_exists(title):
 
 def _wikipedia_url(plant):
     """Build Wikipedia article URL from Perenual API genus + species_epithet (e.g. Cornus florida).
-    Uses only genus and species_epithet when both are present so we link to the species page,
-    not a cultivar (scientific_name can include cultivar like "Cornus florida 'Red Pygmy'").
-    If the species page does not exist, falls back to genus-only. Epithets containing an
-    apostrophe (e.g. "Bath's") are treated as cultivar-like: we try genus first so we use
-    the genus page (e.g. Dianthus) when the species/cultivar page does not exist.
+    Uses only genus and species_epithet when both are present. Check genus+epithet first;
+    if that page exists, use it. If not, fall back to genus-only when that page exists.
     """
     genus = (plant.get("genus") or "").strip()
     epithet = (plant.get("species_epithet") or "").strip()
 
     if genus and epithet:
         species_title = f"{genus} {epithet}"
-        # Epithet with apostrophe (e.g. "Bath's") is often a cultivar; try genus first
-        epithet_looks_cultivar = "'" in epithet
-        if epithet_looks_cultivar and _wikipedia_page_exists(genus):
-            return _wiki_title_to_url(genus)
         if _wikipedia_page_exists(species_title):
             return _wiki_title_to_url(species_title)
         if _wikipedia_page_exists(genus):
@@ -73,10 +66,11 @@ def _wikipedia_url(plant):
         title = sci[0].strip()
     else:
         title = (plant.get("common_name") or "Plant").strip()
-    # When we only have scientific_name (no genus/epithet in stored data), still try existence + genus fallback
-    if title and (" " in title or "'" in title):
+    # When we only have scientific_name/common_name (no genus/epithet in stored data):
+    # try full title first; if it doesn't exist and title has multiple words, try first word (genus-like).
+    if title and " " in title:
         if not _wikipedia_page_exists(title):
-            first_word = title.split()[0] if title.split() else ""
+            first_word = title.split()[0]
             if first_word and _wikipedia_page_exists(first_word):
                 return _wiki_title_to_url(first_word)
     return _wiki_title_to_url(title)
