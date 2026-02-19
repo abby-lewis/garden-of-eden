@@ -59,6 +59,9 @@ def _wikipedia_url(plant):
             return _wiki_title_to_url(species_title)
         if _wikipedia_page_exists(genus):
             return _wiki_title_to_url(genus)
+        # API unreachable or both pages missing: epithet with apostrophe is usually cultivar → use genus
+        if "'" in epithet:
+            return _wiki_title_to_url(genus)
         return _wiki_title_to_url(species_title)
 
     sci = plant.get("scientific_name")
