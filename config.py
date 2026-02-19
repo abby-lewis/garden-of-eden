@@ -31,6 +31,7 @@ ENVIRONMENT = _env if _env in ("local", "prod", "both") else ""
 WEBAUTHN_RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "Garden of Eden")
 # JWT
 JWT_ALGORITHM = "HS256"
+# Token expiry in hours; use 0 for never expire (token valid for 100 years)
 JWT_EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "24"))
 # Comma-separated list of email addresses allowed to register and sign in
 ALLOWED_EMAILS = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").strip().split(",") if e.strip()]
