@@ -16,6 +16,7 @@ from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 from .settings.routes import settings_blueprint
+from .plant_of_the_day.routes import plant_of_the_day_blueprint
 
 
 def _migrate_app_settings_slack(app):
@@ -32,6 +33,7 @@ def _migrate_app_settings_slack(app):
             ("slack_cooldown_minutes", "INTEGER NOT NULL DEFAULT 15"),
             ("slack_notifications_enabled", "INTEGER NOT NULL DEFAULT 1"),
             ("slack_runtime_errors_enabled", "INTEGER NOT NULL DEFAULT 0"),
+            ("plant_of_the_day_slack_time", "TEXT NOT NULL DEFAULT '09:35'"),
         ]:
             if col not in cols:
                 try:
@@ -92,6 +94,7 @@ def create_app(config_name):
         app.config["JWT_ALGORITHM"] = project_config.JWT_ALGORITHM
         app.config["JWT_EXPIRY_HOURS"] = project_config.JWT_EXPIRY_HOURS
         app.config["ALLOWED_EMAILS"] = getattr(project_config, "ALLOWED_EMAILS", [])
+        app.config["PLANT_API_KEY"] = getattr(project_config, "PLANT_API_KEY", "")
         app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_sqlite_uri(app.config["SQLALCHEMY_DATABASE_URI"])
     except ImportError:
         app.config["SECRET_KEY"] = "dev-secret"
@@ -110,6 +113,7 @@ def create_app(config_name):
         app.config["JWT_ALGORITHM"] = "HS256"
         app.config["JWT_EXPIRY_HOURS"] = 24
         app.config["ALLOWED_EMAILS"] = []
+        app.config["PLANT_API_KEY"] = ""
 
     db.init_app(app)
     with app.app_context():
@@ -129,6 +133,7 @@ def create_app(config_name):
     app.register_blueprint(camera_blueprint, url_prefix='/camera')
     app.register_blueprint(schedule_blueprint, url_prefix='/schedule/rules')
     app.register_blueprint(settings_blueprint, url_prefix='/settings')
+    app.register_blueprint(plant_of_the_day_blueprint, url_prefix='/plant-of-the-day')
 
     # @app.teardown_appcontext
     # def shutdown_session(exception=None):

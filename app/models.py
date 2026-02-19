@@ -66,6 +66,7 @@ class AppSettings(db.Model):
     slack_cooldown_minutes: Mapped[int] = mapped_column(nullable=False, default=15)
     slack_notifications_enabled: Mapped[bool] = mapped_column(nullable=False, default=True)
     slack_runtime_errors_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    plant_of_the_day_slack_time: Mapped[str] = mapped_column(nullable=False, default="09:35")
 
     def to_dict(self):
         return {
@@ -91,4 +92,5 @@ class AppSettings(db.Model):
             "slack_cooldown_minutes": self.slack_cooldown_minutes,
             "slack_notifications_enabled": self.slack_notifications_enabled,
             "slack_runtime_errors_enabled": self.slack_runtime_errors_enabled,
+            "plant_of_the_day_slack_time": self.plant_of_the_day_slack_time,
         }
