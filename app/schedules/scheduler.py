@@ -222,26 +222,52 @@ def _scheduler_loop(stop_event):
     light state is applied right away (e.g. lights 9AM-4PM: if Pi boots at 10AM, lights
     turn on within a second). Pump rules that were supposed to run while the Pi was off
     are not run retroactively.
+    Every other tick runs the Slack threshold alert check.
     """
-    import time
+    tick_count = 0
     try:
         _tick()
+        tick_count += 1
     except Exception as e:
         logger.exception("Scheduler initial tick failed: %s", e)
+        _notify_scheduler_error(e, "initial tick")
     while not stop_event.wait(timeout=_SCHEDULER_INTERVAL):
         try:
             _tick()
+            tick_count += 1
+            if _app is not None and tick_count % 2 == 0:
+                try:
+                    from app.alerts.slack_alerts import run_alert_check
+                    run_alert_check(_app)
+                except Exception as alert_e:
+                    logger.warning("Alert check failed: %s", alert_e)
         except Exception as e:
             logger.exception("Scheduler tick failed: %s", e)
+            _notify_scheduler_error(e, "scheduler tick")
+            tick_count += 1
+
+
+def _notify_scheduler_error(exc, context):
+    """Send Slack runtime error notification if enabled."""
+    if _app is None:
+        return
+    try:
+        from app.alerts.slack import send_runtime_error
+        send_runtime_error(_app, exc, context)
+    except Exception:
+        pass
 
 
 _stop_event = Event()
 _thread = None
+_app = None
 
 
-def start_scheduler():
-    """Start the background scheduler thread."""
-    global _thread, _pump_off_lock
+def start_scheduler(app=None):
+    """Start the background scheduler thread. Pass Flask app for alert checks and error notifications."""
+    global _thread, _pump_off_lock, _app
+    if app is not None:
+        _app = app
     if _thread is not None and _thread.is_alive():
         return
     try:

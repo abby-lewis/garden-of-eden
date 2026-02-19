@@ -45,10 +45,10 @@ CORS(
     expose_headers=None,
 )
 
-# Start rule-based scheduler (runs every minute)
+# Start rule-based scheduler (runs every 15s; alert check every other tick)
 try:
     from app.schedules.scheduler import start_scheduler
-    start_scheduler()
+    start_scheduler(app)
 except Exception as e:
     logging.warning("Schedule scheduler not started: %s", e)
 
