@@ -71,3 +71,6 @@ CAMERA_PHOTOS_DIR_RESOLVED = (
     if not os.path.isabs(CAMERA_PHOTOS_DIR)
     else CAMERA_PHOTOS_DIR
 )
+
+# Plant of the day (Perenual API): https://perenual.com/docs/api
+PLANT_API_KEY = os.getenv("PLANT_API_KEY", "").strip()

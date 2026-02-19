@@ -31,6 +31,7 @@ DEFAULTS = {
     "slack_cooldown_minutes": 15,
     "slack_notifications_enabled": True,
     "slack_runtime_errors_enabled": False,
+    "plant_of_the_day_slack_time": "09:35",
 }
 
 
@@ -115,5 +116,18 @@ def update_settings():
             row.slack_cooldown_minutes = max(1, min(120, n))
         except (TypeError, ValueError):
             pass
+    # Plant of the day Slack time (HH:MM or H:MM, 24-hour)
+    if "plant_of_the_day_slack_time" in body:
+        val = body.get("plant_of_the_day_slack_time")
+        if isinstance(val, str) and val.strip():
+            s = val.strip()
+            if len(s) >= 4 and ":" in s:
+                parts = s.split(":", 1)
+                try:
+                    h, m = int(parts[0]), int(parts[1])
+                    if 0 <= h <= 23 and 0 <= m <= 59:
+                        row.plant_of_the_day_slack_time = f"{h:02d}:{m:02d}"
+                except (ValueError, TypeError):
+                    pass
     db.session.commit()
     return jsonify(row.to_dict())
