@@ -17,6 +17,7 @@ from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 from .settings.routes import settings_blueprint
 from .plant_of_the_day.routes import plant_of_the_day_blueprint
+from .history.routes import history_blueprint
 
 
 def _migrate_app_settings_slack(app):
@@ -134,6 +135,7 @@ def create_app(config_name):
     app.register_blueprint(schedule_blueprint, url_prefix='/schedule/rules')
     app.register_blueprint(settings_blueprint, url_prefix='/settings')
     app.register_blueprint(plant_of_the_day_blueprint, url_prefix='/plant-of-the-day')
+    app.register_blueprint(history_blueprint, url_prefix='/history')
 
     # @app.teardown_appcontext
     # def shutdown_session(exception=None):

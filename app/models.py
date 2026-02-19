@@ -3,6 +3,8 @@ SQLite models for passkey auth: User and WebAuthnCredential.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -94,3 +96,27 @@ class AppSettings(db.Model):
             "slack_runtime_errors_enabled": self.slack_runtime_errors_enabled,
             "plant_of_the_day_slack_time": self.plant_of_the_day_slack_time,
         }
+
+
+# Historical sensor readings (polled every 5 minutes)
+class SensorReading(db.Model):
+    __tablename__ = "sensor_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    water_level: Mapped[float | None] = mapped_column(nullable=True)  # cm
+    humidity: Mapped[float | None] = mapped_column(nullable=True)  # %
+    air_temp: Mapped[float | None] = mapped_column(nullable=True)  # F
+    pcb_temp: Mapped[float | None] = mapped_column(nullable=True)  # F
+    light_percentage: Mapped[float | None] = mapped_column(nullable=True)  # 0-100
+
+
+# Pump on/off events (manual or rule)
+class PumpEvent(db.Model):
+    __tablename__ = "pump_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    is_on: Mapped[bool] = mapped_column(nullable=False)  # True = turned on, False = turned off
+    trigger: Mapped[str] = mapped_column(nullable=False)  # "manual" or "rule"
+    rule_id: Mapped[str | None] = mapped_column(nullable=True)  # set when trigger is "rule"
