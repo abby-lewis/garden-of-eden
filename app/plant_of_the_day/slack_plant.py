@@ -17,7 +17,11 @@ WIKI_BASE = "https://en.wikipedia.org/wiki/"
 
 
 def _wikipedia_url(plant):
-    """Build Wikipedia article URL from genus + species epithet, or fallback to scientific_name/common_name."""
+    """Build Wikipedia article URL from Perenual API genus + species_epithet (e.g. Cornus florida).
+    Uses only genus and species_epithet when both are present so we link to the species page,
+    not a cultivar (scientific_name can include cultivar like "Cornus florida 'Red Pygmy'").
+    Falls back to scientific_name or common_name only when genus or species_epithet is missing.
+    """
     genus = (plant.get("genus") or "").strip()
     epithet = (plant.get("species_epithet") or "").strip()
     if genus and epithet:
