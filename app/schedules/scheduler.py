@@ -212,9 +212,12 @@ def _tick():
     _apply_pump_rules(now_dt, now_hm)
 
 
+# How often the scheduler runs (seconds). Shorter = quicker reaction when pause expires.
+_SCHEDULER_INTERVAL = 15
+
 def _scheduler_loop(stop_event):
     """
-    Run every minute until stop_event is set.
+    Run every _SCHEDULER_INTERVAL seconds until stop_event is set.
     On startup, runs one tick immediately so after a reboot or power loss the correct
     light state is applied right away (e.g. lights 9AM-4PM: if Pi boots at 10AM, lights
     turn on within a second). Pump rules that were supposed to run while the Pi was off
@@ -225,7 +228,7 @@ def _scheduler_loop(stop_event):
         _tick()
     except Exception as e:
         logger.exception("Scheduler initial tick failed: %s", e)
-    while not stop_event.wait(timeout=60):
+    while not stop_event.wait(timeout=_SCHEDULER_INTERVAL):
         try:
             _tick()
         except Exception as e:
