@@ -14,28 +14,61 @@ from .puns import pick_pun
 logger = logging.getLogger(__name__)
 
 WIKI_BASE = "https://en.wikipedia.org/wiki/"
+WIKI_API = "https://en.wikipedia.org/w/api.php"
+
+
+def _wiki_title_to_url(title):
+    """Convert a wiki title (e.g. 'Cornus florida') to the article URL."""
+    if not title or not title.strip():
+        return WIKI_BASE + "Plant"
+    title = title.strip().replace(" ", "_")
+    return WIKI_BASE + urllib.parse.quote(title, safe="/_")
+
+
+def _wikipedia_page_exists(title):
+    """Return True if a Wikipedia article exists for the given title (e.g. 'Cornus florida')."""
+    if not title or not title.strip():
+        return False
+    title = title.strip().replace(" ", "_")
+    url = f"{WIKI_API}?action=query&titles={urllib.parse.quote(title, safe='')}&format=json"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        pages = (data.get("query") or {}).get("pages") or {}
+        for page_id, page in pages.items():
+            if str(page_id) != "-1" and "missing" not in page:
+                return True
+        return False
+    except Exception as e:
+        logger.debug("Wikipedia API check failed for %r: %s", title, e)
+        return False
 
 
 def _wikipedia_url(plant):
     """Build Wikipedia article URL from Perenual API genus + species_epithet (e.g. Cornus florida).
     Uses only genus and species_epithet when both are present so we link to the species page,
     not a cultivar (scientific_name can include cultivar like "Cornus florida 'Red Pygmy'").
-    Falls back to scientific_name or common_name only when genus or species_epithet is missing.
+    If the species page does not exist, falls back to genus-only. Otherwise falls back to
+    scientific_name or common_name when genus or species_epithet is missing.
     """
     genus = (plant.get("genus") or "").strip()
     epithet = (plant.get("species_epithet") or "").strip()
+
     if genus and epithet:
-        title = f"{genus} {epithet}"
+        species_title = f"{genus} {epithet}"
+        if _wikipedia_page_exists(species_title):
+            return _wiki_title_to_url(species_title)
+        if _wikipedia_page_exists(genus):
+            return _wiki_title_to_url(genus)
+        return _wiki_title_to_url(species_title)
+
+    sci = plant.get("scientific_name")
+    if isinstance(sci, list) and sci and isinstance(sci[0], str) and sci[0].strip():
+        title = sci[0].strip()
     else:
-        sci = plant.get("scientific_name")
-        if isinstance(sci, list) and sci and isinstance(sci[0], str) and sci[0].strip():
-            title = sci[0].strip()
-        else:
-            title = (plant.get("common_name") or "Plant").strip()
-    if not title:
-        return WIKI_BASE + "Plant"
-    title = title.replace(" ", "_")
-    return WIKI_BASE + urllib.parse.quote(title, safe="/_")
+        title = (plant.get("common_name") or "Plant").strip()
+    return _wiki_title_to_url(title)
 
 
 def send_plant_of_the_day_slack(app):
