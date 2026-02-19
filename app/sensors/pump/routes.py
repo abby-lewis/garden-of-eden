@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.lib.lib import check_sensor_guard
 from .pump import Pump as PumpControl 
 from .pump_power import fetch_ina219_data
@@ -11,12 +11,22 @@ check_sensor = check_sensor_guard(sensor=pump_control, sensor_name='Pump')
 @check_sensor
 def turn_on():
     pump_control.on()
+    try:
+        from app.history import log_pump_event
+        log_pump_event(current_app, True, "manual")
+    except Exception:
+        pass
     return jsonify(message="Pump turned on!"), 200
 
 @pump_blueprint.route('/off', methods=['POST'])
 @check_sensor
 def turn_off():
     pump_control.off()
+    try:
+        from app.history import log_pump_event
+        log_pump_event(current_app, False, "manual")
+    except Exception:
+        pass
     return jsonify(message="Pump turned off!"), 200
 
 @pump_blueprint.route('/speed', methods=['POST'])
