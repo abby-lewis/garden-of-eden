@@ -151,6 +151,9 @@ def _apply_pump_rules(now_dt, now_hm):
                 if pump:
                     try:
                         pump.off()
+                        if _app is not None:
+                            from app.history import log_pump_event
+                            log_pump_event(_app, False, "rule", rule_id=rule_id)
                         logger.info("Scheduler: pump off (rule %s)", rule_id)
                     except Exception as e:
                         logger.warning("Scheduler could not turn pump off: %s", e)
@@ -167,6 +170,9 @@ def _apply_pump_rules(now_dt, now_hm):
         if pump:
             try:
                 pump.off()
+                if _app is not None:
+                    from app.history import log_pump_event
+                    log_pump_event(_app, False, "manual")
                 logger.info("Scheduler: pump off (manual watering ended)")
             except Exception as e:
                 logger.warning("Scheduler could not turn pump off: %s", e)
@@ -190,6 +196,9 @@ def _apply_pump_rules(now_dt, now_hm):
             try:
                 pump.on()
                 pump.set_speed(100)
+                if _app is not None:
+                    from app.history import log_pump_event
+                    log_pump_event(_app, True, "rule", rule_id=r.get("id", ""))
                 off_at = now_dt + timedelta(minutes=duration)
                 to_add.append((off_at, r.get("id", "")))
                 logger.info("Scheduler: pump on for %s min (rule %s)", duration, r.get("id"))
@@ -242,6 +251,13 @@ def _scheduler_loop(stop_event):
                     run_alert_check(_app)
                 except Exception as alert_e:
                     logger.warning("Alert check failed: %s", alert_e)
+            # Every 5 minutes (20 * 15s): record sensor snapshot for history
+            if _app is not None and tick_count > 0 and tick_count % 20 == 0:
+                try:
+                    from app.history import record_sensor_snapshot
+                    record_sensor_snapshot(_app)
+                except Exception as hist_e:
+                    logger.warning("History sensor snapshot failed: %s", hist_e)
             _run_plant_of_the_day_jobs()
         except Exception as e:
             logger.exception("Scheduler tick failed: %s", e)
