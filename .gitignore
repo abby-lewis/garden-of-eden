@@ -6,3 +6,7 @@ venv/
 # If using Jython
 *.class
 .env
+gardyn.log
+schedule_rules.json
+instance/
+*.db

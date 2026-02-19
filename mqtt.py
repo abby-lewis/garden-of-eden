@@ -501,13 +501,13 @@ def publish_images(client):
 
             # Publish upper camera image
             with open(UPPER_IMAGE_PATH, 'rb') as f:
-                upper_cam_jpeg_data = f.read()  # Read as raw binary
+                upper_cam_jpeg_data = f.read()
                 client.publish(BASE_TOPIC + "/image/upper_camera", payload=upper_cam_jpeg_data, qos=0, retain=False)
                 logger.info("Published image to /image/upper_camera")
 
             # Publish lower camera image
             with open(LOWER_IMAGE_PATH, 'rb') as f:
-                lower_cam_jpeg_data = f.read()  # Read as raw binary
+                lower_cam_jpeg_data = f.read()
                 client.publish(BASE_TOPIC + "/image/lower_camera", payload=lower_cam_jpeg_data, qos=0, retain=False)
                 logger.info("Published image to /image/lower_camera")
 
