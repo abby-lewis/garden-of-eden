@@ -49,14 +49,19 @@ def _wikipedia_url(plant):
     """Build Wikipedia article URL from Perenual API genus + species_epithet (e.g. Cornus florida).
     Uses only genus and species_epithet when both are present so we link to the species page,
     not a cultivar (scientific_name can include cultivar like "Cornus florida 'Red Pygmy'").
-    If the species page does not exist, falls back to genus-only. Otherwise falls back to
-    scientific_name or common_name when genus or species_epithet is missing.
+    If the species page does not exist, falls back to genus-only. Epithets containing an
+    apostrophe (e.g. "Bath's") are treated as cultivar-like: we try genus first so we use
+    the genus page (e.g. Dianthus) when the species/cultivar page does not exist.
     """
     genus = (plant.get("genus") or "").strip()
     epithet = (plant.get("species_epithet") or "").strip()
 
     if genus and epithet:
         species_title = f"{genus} {epithet}"
+        # Epithet with apostrophe (e.g. "Bath's") is often a cultivar; try genus first
+        epithet_looks_cultivar = "'" in epithet
+        if epithet_looks_cultivar and _wikipedia_page_exists(genus):
+            return _wiki_title_to_url(genus)
         if _wikipedia_page_exists(species_title):
             return _wiki_title_to_url(species_title)
         if _wikipedia_page_exists(genus):
