@@ -152,6 +152,7 @@ When passkey auth is enabled, the Pi must know the **dashboard’s** origin (whe
 - **WEBAUTHN_RP_ID_PROD** / **WEBAUTHN_ORIGIN_PROD** = hostname and full origin for the deployed dashboard.
 - **WEBAUTHN_RP_ID** and **WEBAUTHN_ORIGIN** = legacy single pair; used when ENVIRONMENT is set or as fallback.
 - **ALLOWED_EMAILS** = optional comma-separated list of email addresses that may register a passkey. When set, only those addresses can create an account (e.g. limit access to your household or family). If unset, a single default user is used. See `.env-dist` for the variable name; attempted registrations from non-allowed emails are refused with a friendly message and logged to a file.
+- **ALLOW_NEW_USERS** = when `false`, registration is disabled: the dashboard should hide the "create passkey" UI and show "We're not accepting new users at this time." Login remains available. The frontend can call `GET /auth/config` to get `allow_new_users` and adjust the UI.
 
 The API URL stays the same (e.g. `https://your-pi-hostname:8444`). In Netlify (or your host), set the build env var **VITE_GARDYN_API_URL** to that API URL so the dashboard knows where to send requests.
 
