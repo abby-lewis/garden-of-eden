@@ -1,9 +1,12 @@
 """GET /plant-of-the-day: return current plant for dashboard."""
+import logging
+
 from flask import Blueprint, jsonify, current_app
 
 from . import store
 from .slack_plant import _wikipedia_url
 
+logger = logging.getLogger(__name__)
 plant_of_the_day_blueprint = Blueprint("plant_of_the_day", __name__)
 
 
@@ -14,5 +17,9 @@ def get_plant_of_the_day():
     if plant is None:
         return jsonify({"error": "No plant of the day set"}), 404
     out = dict(plant)
-    out["wikipedia_url"] = _wikipedia_url(plant)
+    try:
+        out["wikipedia_url"] = _wikipedia_url(plant)
+    except Exception as e:
+        logger.warning("Wikipedia URL failed for plant of the day: %s", e)
+        out["wikipedia_url"] = None
     return jsonify(out)
