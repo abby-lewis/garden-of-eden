@@ -11,7 +11,7 @@ All rule times (start_time, end_time, time) are in device local time. Set the Pi
 timezone to America/Chicago (Central) so rules match the times shown in the dashboard.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from threading import Thread, Event
 
 from .store import (
@@ -222,26 +222,107 @@ def _scheduler_loop(stop_event):
     light state is applied right away (e.g. lights 9AM-4PM: if Pi boots at 10AM, lights
     turn on within a second). Pump rules that were supposed to run while the Pi was off
     are not run retroactively.
+    Every other tick runs the Slack threshold alert check.
     """
-    import time
+    tick_count = 0
     try:
         _tick()
+        tick_count += 1
+        _run_plant_of_the_day_jobs()
     except Exception as e:
         logger.exception("Scheduler initial tick failed: %s", e)
+        _notify_scheduler_error(e, "initial tick")
     while not stop_event.wait(timeout=_SCHEDULER_INTERVAL):
         try:
             _tick()
+            tick_count += 1
+            if _app is not None and tick_count % 2 == 0:
+                try:
+                    from app.alerts.slack_alerts import run_alert_check
+                    run_alert_check(_app)
+                except Exception as alert_e:
+                    logger.warning("Alert check failed: %s", alert_e)
+            _run_plant_of_the_day_jobs()
         except Exception as e:
             logger.exception("Scheduler tick failed: %s", e)
+            _notify_scheduler_error(e, "scheduler tick")
+            tick_count += 1
+
+
+def _parse_plant_slack_time(time_str):
+    """Parse 'HH:MM' or 'H:MM' to (hour, minute) or None."""
+    if not time_str or ":" not in str(time_str):
+        return (9, 35)
+    parts = str(time_str).strip().split(":", 1)
+    if len(parts) != 2:
+        return (9, 35)
+    try:
+        h, m = int(parts[0]), int(parts[1])
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return (h, m)
+    except (ValueError, TypeError):
+        pass
+    return (9, 35)
+
+
+def _run_plant_of_the_day_jobs():
+    """At midnight: fetch new plant. At configured time: send Slack. Once per day each."""
+    global _last_plant_fetch_date, _last_plant_slack_date
+    if _app is None:
+        return
+    now = datetime.now()
+    today = date.today()
+    if now.hour == 0 and now.minute < 2:
+        if _last_plant_fetch_date != today:
+            _last_plant_fetch_date = today
+            try:
+                from app.plant_of_the_day.fetch import fetch_plant_of_the_day
+                fetch_plant_of_the_day(_app)
+            except Exception as e:
+                logger.warning("Plant of the day fetch failed: %s", e)
+    # Plant of the day Slack at configured time (default 09:35)
+    with _app.app_context():
+        from app.settings.routes import _get_or_create
+        row = _get_or_create()
+        slack_h, slack_m = _parse_plant_slack_time(getattr(row, "plant_of_the_day_slack_time", "09:35"))
+    if now.hour == slack_h and slack_m <= now.minute < slack_m + 2:
+        if _last_plant_slack_date != today:
+            _last_plant_slack_date = today
+            try:
+                from app.plant_of_the_day import store as plant_store
+                from app.plant_of_the_day.fetch import fetch_plant_of_the_day
+                from app.plant_of_the_day.slack_plant import send_plant_of_the_day_slack
+                # First run in the morning may have no plant yet (midnight hasn't run); fetch one for today
+                if plant_store.get_current_plant(_app) is None:
+                    fetch_plant_of_the_day(_app)
+                send_plant_of_the_day_slack(_app)
+            except Exception as e:
+                logger.warning("Plant of the day Slack failed: %s", e)
+
+
+def _notify_scheduler_error(exc, context):
+    """Send Slack runtime error notification if enabled."""
+    if _app is None:
+        return
+    try:
+        from app.alerts.slack import send_runtime_error
+        send_runtime_error(_app, exc, context)
+    except Exception:
+        pass
 
 
 _stop_event = Event()
 _thread = None
+_app = None
+_last_plant_fetch_date = None
+_last_plant_slack_date = None
 
 
-def start_scheduler():
-    """Start the background scheduler thread."""
-    global _thread, _pump_off_lock
+def start_scheduler(app=None):
+    """Start the background scheduler thread. Pass Flask app for alert checks and error notifications."""
+    global _thread, _pump_off_lock, _app
+    if app is not None:
+        _app = app
     if _thread is not None and _thread.is_alive():
         return
     try:

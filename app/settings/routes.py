@@ -27,6 +27,11 @@ DEFAULTS = {
     "humidity_alerts_enabled": False,
     "air_temp_alerts_enabled": False,
     "pcb_temp_alerts_enabled": False,
+    "slack_webhook_url": None,
+    "slack_cooldown_minutes": 15,
+    "slack_notifications_enabled": True,
+    "slack_runtime_errors_enabled": False,
+    "plant_of_the_day_slack_time": "09:35",
 }
 
 
@@ -65,6 +70,22 @@ def get_settings():
     return jsonify(row.to_dict())
 
 
+@settings_blueprint.route("/test-slack", methods=["POST"])
+def test_slack():
+    """Send a test Slack message. Body may include optional "webhook_url" to test before saving."""
+    try:
+        from flask import current_app
+        from app.alerts.slack import send_test_slack
+        body = request.get_json() or {}
+        override = (body.get("webhook_url") or "").strip() or None
+        send_test_slack(current_app, webhook_url_override=override)
+        return jsonify({"message": "Test message sent to Slack."}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @settings_blueprint.route("", methods=["PUT", "PATCH"])
 def update_settings():
     """Update app settings. Body can contain any subset of keys."""
@@ -80,8 +101,33 @@ def update_settings():
         if key in body:
             setattr(row, key, _float(body[key], getattr(row, key)))
     # Booleans
-    for key in ("water_level_alerts_enabled", "humidity_alerts_enabled", "air_temp_alerts_enabled", "pcb_temp_alerts_enabled"):
+    for key in ("water_level_alerts_enabled", "humidity_alerts_enabled", "air_temp_alerts_enabled", "pcb_temp_alerts_enabled",
+                "slack_notifications_enabled", "slack_runtime_errors_enabled"):
         if key in body:
             setattr(row, key, _bool(body[key], getattr(row, key)))
+    # Slack: webhook URL (string, empty string = use env)
+    if "slack_webhook_url" in body:
+        val = body["slack_webhook_url"]
+        row.slack_webhook_url = (val.strip() or None) if isinstance(val, str) else None
+    # Slack cooldown (1–120 minutes)
+    if "slack_cooldown_minutes" in body:
+        try:
+            n = int(body["slack_cooldown_minutes"])
+            row.slack_cooldown_minutes = max(1, min(120, n))
+        except (TypeError, ValueError):
+            pass
+    # Plant of the day Slack time (HH:MM or H:MM, 24-hour)
+    if "plant_of_the_day_slack_time" in body:
+        val = body.get("plant_of_the_day_slack_time")
+        if isinstance(val, str) and val.strip():
+            s = val.strip()
+            if len(s) >= 4 and ":" in s:
+                parts = s.split(":", 1)
+                try:
+                    h, m = int(parts[0]), int(parts[1])
+                    if 0 <= h <= 23 and 0 <= m <= 59:
+                        row.plant_of_the_day_slack_time = f"{h:02d}:{m:02d}"
+                except (ValueError, TypeError):
+                    pass
     db.session.commit()
     return jsonify(row.to_dict())

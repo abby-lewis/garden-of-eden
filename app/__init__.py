@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from flask import Flask
+from sqlalchemy import text
 
 from app.models import db
 from .auth.routes import auth_blueprint
@@ -15,6 +16,43 @@ from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
 from .settings.routes import settings_blueprint
+from .plant_of_the_day.routes import plant_of_the_day_blueprint
+
+
+def _migrate_app_settings_slack(app):
+    """Add Slack-related columns to app_settings if missing (for existing DBs)."""
+    from app.models import db
+    with db.engine.connect() as conn:
+        try:
+            r = conn.execute(text("PRAGMA table_info(app_settings)"))
+            cols = {row[1] for row in r}
+        except Exception:
+            return
+        for col, spec in [
+            ("slack_webhook_url", "TEXT"),
+            ("slack_cooldown_minutes", "INTEGER NOT NULL DEFAULT 15"),
+            ("slack_notifications_enabled", "INTEGER NOT NULL DEFAULT 1"),
+            ("slack_runtime_errors_enabled", "INTEGER NOT NULL DEFAULT 0"),
+            ("plant_of_the_day_slack_time", "TEXT NOT NULL DEFAULT '09:35'"),
+        ]:
+            if col not in cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE app_settings ADD COLUMN {col} {spec}"))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+
+
+def _register_error_handlers(app):
+    """Send Slack notification on 500 if runtime errors enabled in settings."""
+    @app.errorhandler(500)
+    def handle_500(e):
+        try:
+            from app.alerts.slack import send_runtime_error
+            send_runtime_error(app, e, "HTTP 500")
+        except Exception:
+            pass
+        return {"error": "Internal Server Error"}, 500
 
 
 def _normalize_sqlite_uri(uri: str) -> str:
@@ -56,6 +94,7 @@ def create_app(config_name):
         app.config["JWT_ALGORITHM"] = project_config.JWT_ALGORITHM
         app.config["JWT_EXPIRY_HOURS"] = project_config.JWT_EXPIRY_HOURS
         app.config["ALLOWED_EMAILS"] = getattr(project_config, "ALLOWED_EMAILS", [])
+        app.config["PLANT_API_KEY"] = getattr(project_config, "PLANT_API_KEY", "")
         app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_sqlite_uri(app.config["SQLALCHEMY_DATABASE_URI"])
     except ImportError:
         app.config["SECRET_KEY"] = "dev-secret"
@@ -74,12 +113,15 @@ def create_app(config_name):
         app.config["JWT_ALGORITHM"] = "HS256"
         app.config["JWT_EXPIRY_HOURS"] = 24
         app.config["ALLOWED_EMAILS"] = []
+        app.config["PLANT_API_KEY"] = ""
 
     db.init_app(app)
     with app.app_context():
         db.create_all()
+        _migrate_app_settings_slack(app)
 
     require_auth(app)
+    _register_error_handlers(app)
     app.register_blueprint(auth_blueprint)
     # Register blueprints
     app.register_blueprint(light_blueprint, url_prefix='/light')
@@ -91,6 +133,7 @@ def create_app(config_name):
     app.register_blueprint(camera_blueprint, url_prefix='/camera')
     app.register_blueprint(schedule_blueprint, url_prefix='/schedule/rules')
     app.register_blueprint(settings_blueprint, url_prefix='/settings')
+    app.register_blueprint(plant_of_the_day_blueprint, url_prefix='/plant-of-the-day')
 
     # @app.teardown_appcontext
     # def shutdown_session(exception=None):
