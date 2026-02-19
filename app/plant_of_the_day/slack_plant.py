@@ -73,6 +73,12 @@ def _wikipedia_url(plant):
         title = sci[0].strip()
     else:
         title = (plant.get("common_name") or "Plant").strip()
+    # When we only have scientific_name (no genus/epithet in stored data), still try existence + genus fallback
+    if title and (" " in title or "'" in title):
+        if not _wikipedia_page_exists(title):
+            first_word = title.split()[0] if title.split() else ""
+            if first_word and _wikipedia_page_exists(first_word):
+                return _wiki_title_to_url(first_word)
     return _wiki_title_to_url(title)
 
 
