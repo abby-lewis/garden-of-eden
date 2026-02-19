@@ -41,6 +41,7 @@ def create_app(config_name):
         import config as project_config
         app.config["SECRET_KEY"] = project_config.SECRET_KEY
         app.config["AUTH_ENABLED"] = project_config.AUTH_ENABLED
+        app.config["ALLOW_NEW_USERS"] = getattr(project_config, "ALLOW_NEW_USERS", True)
         app.config["SQLALCHEMY_DATABASE_URI"] = project_config.SQLALCHEMY_DATABASE_URI
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["WEBAUTHN_RP_ID"] = project_config.WEBAUTHN_RP_ID
@@ -58,6 +59,7 @@ def create_app(config_name):
     except ImportError:
         app.config["SECRET_KEY"] = "dev-secret"
         app.config["AUTH_ENABLED"] = False
+        app.config["ALLOW_NEW_USERS"] = True
         app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_sqlite_uri("sqlite:///instance/garden.db")
         app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
         app.config["WEBAUTHN_RP_ID"] = "localhost"

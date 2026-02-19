@@ -118,12 +118,23 @@ def _get_webauthn_config():
     return {"rp_id": rp_id, "origin": origin}
 
 
+# ---- Public config (no auth) ----
+
+@auth_blueprint.route("/config", methods=["GET"])
+def auth_config():
+    """Return auth-related config for the frontend (e.g. whether new user signup is allowed)."""
+    allow_new_users = current_app.config.get("ALLOW_NEW_USERS", True)
+    return jsonify({"allow_new_users": allow_new_users})
+
+
 # ---- Registration ----
 
 @auth_blueprint.route("/register/options", methods=["GET"])
 def register_options():
     """Return PublicKeyCredentialCreationOptions for the client. Requires ?email= for allowed-users mode."""
     global _registration_email
+    if not current_app.config.get("ALLOW_NEW_USERS", True):
+        return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
     try:
         email = (request.args.get("email") or "").strip().lower()
         allowed = _get_allowed_emails()
@@ -163,6 +174,8 @@ def register_options():
 def register():
     """Verify registration response and store the credential. Body may include email for allowed-users mode."""
     global _registration_email
+    if not current_app.config.get("ALLOW_NEW_USERS", True):
+        return jsonify({"error": REGISTRATION_REFUSED_MESSAGE}), 403
     try:
         challenge = _challenges.pop("registration", None)
         if not challenge:
