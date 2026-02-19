@@ -271,7 +271,11 @@ def login():
         db.session.commit()
         user = cred.user
         now = datetime.now(timezone.utc)
-        exp = now + timedelta(hours=current_app.config["JWT_EXPIRY_HOURS"])
+        expiry_hours = current_app.config["JWT_EXPIRY_HOURS"]
+        if expiry_hours <= 0:
+            exp = now + timedelta(days=365 * 100)  # never expire in practice
+        else:
+            exp = now + timedelta(hours=expiry_hours)
         payload = {
             "sub": str(user.id),
             "name": user.name,
