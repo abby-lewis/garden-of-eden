@@ -14,6 +14,7 @@ from .sensors.humidity.routes import humidity_blueprint
 from .sensors.pcb_temp.routes import pcb_temp_blueprint
 from .sensors.camera.routes import camera_blueprint
 from .schedules.routes import schedule_blueprint
+from .settings.routes import settings_blueprint
 
 
 def _normalize_sqlite_uri(uri: str) -> str:
@@ -89,6 +90,7 @@ def create_app(config_name):
     app.register_blueprint(pcb_temp_blueprint, url_prefix='/pcb-temp')
     app.register_blueprint(camera_blueprint, url_prefix='/camera')
     app.register_blueprint(schedule_blueprint, url_prefix='/schedule/rules')
+    app.register_blueprint(settings_blueprint, url_prefix='/settings')
 
     # @app.teardown_appcontext
     # def shutdown_session(exception=None):

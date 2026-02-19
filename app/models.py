@@ -36,3 +36,50 @@ class WebAuthnCredential(db.Model):
     sign_count: Mapped[int] = mapped_column(nullable=False, default=0)
 
     user: Mapped["User"] = relationship("User", back_populates="credentials")
+
+
+# Singleton row (id=1) for gauge/alert thresholds and alert toggles
+class AppSettings(db.Model):
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)  # always 1
+    water_level_min: Mapped[float] = mapped_column(nullable=False, default=13.0)
+    water_level_max: Mapped[float] = mapped_column(nullable=False, default=8.5)
+    water_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=12.0)
+    air_temp_min: Mapped[float] = mapped_column(nullable=False, default=32.0)
+    air_temp_max: Mapped[float] = mapped_column(nullable=False, default=100.0)
+    air_temp_high_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=80.0)
+    air_temp_low_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=65.0)
+    humidity_min: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    humidity_max: Mapped[float] = mapped_column(nullable=False, default=100.0)
+    humidity_low_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=40.0)
+    humidity_high_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=90.0)
+    pcb_temp_min: Mapped[float] = mapped_column(nullable=False, default=75.0)
+    pcb_temp_max: Mapped[float] = mapped_column(nullable=False, default=130.0)
+    pcb_temp_alert_threshold: Mapped[float] = mapped_column(nullable=False, default=110.0)
+    water_level_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    humidity_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    air_temp_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    pcb_temp_alerts_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+
+    def to_dict(self):
+        return {
+            "water_level_min": self.water_level_min,
+            "water_level_max": self.water_level_max,
+            "water_alert_threshold": self.water_alert_threshold,
+            "air_temp_min": self.air_temp_min,
+            "air_temp_max": self.air_temp_max,
+            "air_temp_high_alert_threshold": self.air_temp_high_alert_threshold,
+            "air_temp_low_alert_threshold": self.air_temp_low_alert_threshold,
+            "humidity_min": self.humidity_min,
+            "humidity_max": self.humidity_max,
+            "humidity_low_alert_threshold": self.humidity_low_alert_threshold,
+            "humidity_high_alert_threshold": self.humidity_high_alert_threshold,
+            "pcb_temp_min": self.pcb_temp_min,
+            "pcb_temp_max": self.pcb_temp_max,
+            "pcb_temp_alert_threshold": self.pcb_temp_alert_threshold,
+            "water_level_alerts_enabled": self.water_level_alerts_enabled,
+            "humidity_alerts_enabled": self.humidity_alerts_enabled,
+            "air_temp_alerts_enabled": self.air_temp_alerts_enabled,
+            "pcb_temp_alerts_enabled": self.pcb_temp_alerts_enabled,
+        }
