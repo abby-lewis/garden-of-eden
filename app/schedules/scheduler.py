@@ -258,6 +258,8 @@ def _scheduler_loop(stop_event):
                     record_sensor_snapshot(_app)
                 except Exception as hist_e:
                     logger.warning("History sensor snapshot failed: %s", hist_e)
+            # Daily at 3 AM: incremental MongoDB backup
+            _run_daily_backup_job()
             _run_plant_of_the_day_jobs()
         except Exception as e:
             logger.exception("Scheduler tick failed: %s", e)
@@ -317,6 +319,23 @@ def _run_plant_of_the_day_jobs():
             logger.warning("Plant of the day Slack failed: %s", e)
 
 
+def _run_daily_backup_job():
+    """At 3:00–3:05 AM (local time), run incremental MongoDB backup once per day."""
+    global _last_backup_date
+    if _app is None:
+        return
+    now = datetime.now()
+    today = date.today()
+    if now.hour == 3 and 0 <= now.minute < 5:
+        if _last_backup_date != today:
+            _last_backup_date = today
+            try:
+                from app.backup.incremental import run_incremental_backup
+                run_incremental_backup(_app)
+            except Exception as e:
+                logger.warning("Daily backup failed: %s", e)
+
+
 def _notify_scheduler_error(exc, context):
     """Send Slack runtime error notification if enabled."""
     if _app is None:
@@ -332,6 +351,7 @@ _stop_event = Event()
 _thread = None
 _app = None
 _last_plant_fetch_date = None
+_last_backup_date = None
 
 
 def start_scheduler(app=None):
