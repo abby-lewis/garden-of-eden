@@ -267,7 +267,7 @@ def _parse_plant_slack_time(time_str):
 
 def _run_plant_of_the_day_jobs():
     """At midnight: fetch new plant. At configured time: send Slack. Once per day each."""
-    global _last_plant_fetch_date, _last_plant_slack_date
+    global _last_plant_fetch_date
     if _app is None:
         return
     now = datetime.now()
@@ -280,24 +280,25 @@ def _run_plant_of_the_day_jobs():
                 fetch_plant_of_the_day(_app)
             except Exception as e:
                 logger.warning("Plant of the day fetch failed: %s", e)
-    # Plant of the day Slack at configured time (default 09:35)
+    # Plant of the day Slack at configured time (default 09:35). Use file-based claim
+    # so only one process sends per day (avoids double send with reloader or multiple workers).
     with _app.app_context():
         from app.settings.routes import _get_or_create
+        from app.plant_of_the_day import store as plant_store
         row = _get_or_create()
         slack_h, slack_m = _parse_plant_slack_time(getattr(row, "plant_of_the_day_slack_time", "09:35"))
     if now.hour == slack_h and slack_m <= now.minute < slack_m + 2:
-        if _last_plant_slack_date != today:
-            _last_plant_slack_date = today
-            try:
-                from app.plant_of_the_day import store as plant_store
-                from app.plant_of_the_day.fetch import fetch_plant_of_the_day
-                from app.plant_of_the_day.slack_plant import send_plant_of_the_day_slack
-                # First run in the morning may have no plant yet (midnight hasn't run); fetch one for today
-                if plant_store.get_current_plant(_app) is None:
-                    fetch_plant_of_the_day(_app)
-                send_plant_of_the_day_slack(_app)
-            except Exception as e:
-                logger.warning("Plant of the day Slack failed: %s", e)
+        if not plant_store.claim_plant_of_the_day_slack_sent_today(_app):
+            return
+        try:
+            from app.plant_of_the_day.fetch import fetch_plant_of_the_day
+            from app.plant_of_the_day.slack_plant import send_plant_of_the_day_slack
+            # First run in the morning may have no plant yet (midnight hasn't run); fetch one for today
+            if plant_store.get_current_plant(_app) is None:
+                fetch_plant_of_the_day(_app)
+            send_plant_of_the_day_slack(_app)
+        except Exception as e:
+            logger.warning("Plant of the day Slack failed: %s", e)
 
 
 def _notify_scheduler_error(exc, context):
@@ -315,7 +316,6 @@ _stop_event = Event()
 _thread = None
 _app = None
 _last_plant_fetch_date = None
-_last_plant_slack_date = None
 
 
 def start_scheduler(app=None):
